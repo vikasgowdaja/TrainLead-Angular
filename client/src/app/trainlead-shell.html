@@ -1,0 +1,166 @@
+<div class="app-shell" [class.dark-theme]="darkMode()">
+  <header class="topbar">
+    <a class="brand" href="#requirements" (click)="$event.preventDefault(); setView('requirements')">
+      <span class="brand-mark" aria-hidden="true"><span></span></span>
+      <span>trainlead</span>
+    </a>
+
+    <nav class="primary-nav" aria-label="Main navigation" role="tablist">
+      <button
+        class="nav-tab"
+        [class.is-active]="activeView() === 'requirements'"
+        [attr.aria-selected]="activeView() === 'requirements'"
+        role="tab"
+        (click)="setView('requirements')"
+      >
+        Requirements <span class="nav-count">03</span>
+      </button>
+      <button
+        class="nav-tab"
+        [class.is-active]="activeView() === 'inbox'"
+        [attr.aria-selected]="activeView() === 'inbox'"
+        role="tab"
+        (click)="setView('inbox')"
+      >
+        Inbox <span class="nav-count inbox-count">02</span>
+      </button>
+    </nav>
+
+    <div class="topbar-actions">
+      <span class="network-status"><span></span> Demo workspace</span>
+      <button
+        class="icon-button theme-toggle"
+        type="button"
+        [attr.aria-label]="darkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+        [title]="darkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+        (click)="toggleTheme()"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">{{ darkMode() ? 'light_mode' : 'dark_mode' }}</span>
+      </button>
+      <button class="profile-button" type="button" aria-label="Account: Ananya Rao">
+        <span class="profile-avatar">AR</span>
+        <span class="profile-name">Ananya Rao</span>
+        <span class="material-symbols-outlined profile-chevron" aria-hidden="true">expand_more</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    @if (activeView() === 'requirements') {
+      <section class="page-heading" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">TRAINING MARKETPLACE <span>/</span> SOURCING</p>
+          <h1 id="page-title">Requirements</h1>
+          <p class="page-description">Find the next room where your expertise can make a difference.</p>
+        </div>
+        <div class="heading-meta">
+          <span class="updated-label">UPDATED JUST NOW</span>
+          <span class="date-stamp">MON, NOV 02</span>
+        </div>
+      </section>
+
+      <section class="overview" aria-label="Requirement overview">
+        <div class="overview-main">
+          <span class="overview-label">OPEN OPPORTUNITIES</span>
+          <strong>03</strong>
+          <span class="overview-note"><span class="material-symbols-outlined" aria-hidden="true">trending_up</span> 2 new this week</span>
+        </div>
+        <div class="overview-divider" aria-hidden="true"></div>
+        <div class="overview-detail">
+          <span class="detail-mark teal-mark"></span>
+          <span><strong>02</strong> repeated posts grouped</span>
+        </div>
+        <div class="overview-detail">
+          <span class="detail-mark orange-mark"></span>
+          <span><strong>01</strong> payment date listed</span>
+        </div>
+        <span class="overview-index">01 <span>/</span> 03</span>
+      </section>
+
+      <div class="content-grid">
+        <section class="requirements-list" aria-label="Open training requirements">
+          <div class="section-heading">
+            <div>
+              <h2>Recently added</h2>
+              <p>Opportunities from your training network</p>
+            </div>
+            <button class="sort-button" type="button" disabled aria-label="Sorted by newest">
+              <span class="material-symbols-outlined" aria-hidden="true">sort</span>
+              Newest
+            </button>
+          </div>
+
+          <div class="card-list">
+            @for (requirement of requirements; track requirement.id) {
+              <app-requirement-card [requirement]="requirement" />
+            }
+          </div>
+        </section>
+
+        <aside class="sidebar" aria-label="Marketplace notes">
+          <section class="sidebar-panel network-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">YOUR NETWORK</p>
+                <h2>Sources today</h2>
+              </div>
+              <span class="material-symbols-outlined panel-icon" aria-hidden="true">hub</span>
+            </div>
+            <div class="source-row">
+              <span class="source-avatar source-one">S</span>
+              <span class="source-name">SkillBridge Academy</span>
+              <span class="source-total">04</span>
+            </div>
+            <div class="source-row">
+              <span class="source-avatar source-two">C</span>
+              <span class="source-name">Campus Connect</span>
+              <span class="source-total">03</span>
+            </div>
+            <div class="source-row">
+              <span class="source-avatar source-three">T</span>
+              <span class="source-name">Tech Trainers India</span>
+              <span class="source-total">02</span>
+            </div>
+            <p class="panel-footnote">Posts are grouped when they describe the same training need.</p>
+          </section>
+
+          <section class="sidebar-panel note-panel">
+            <span class="material-symbols-outlined note-icon" aria-hidden="true">tips_and_updates</span>
+            <div>
+              <p class="eyebrow">TRAINER NOTE</p>
+              <p class="note-copy">Compare the dates and city before you raise your hand. The small details make a good match.</p>
+            </div>
+          </section>
+        </aside>
+      </div>
+    } @else {
+      <section class="page-heading inbox-heading" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">TRAINING MARKETPLACE <span>/</span> INCOMING POSTS</p>
+          <h1 id="page-title">Inbox</h1>
+          <p class="page-description">New posts collected from your training network.</p>
+        </div>
+        <span class="inbox-total"><span class="inbox-dot"></span> {{ posts.length }} waiting</span>
+      </section>
+
+      <section class="inbox-list" aria-label="Incoming requirement posts">
+        @for (post of posts; track post.id) {
+          <article class="inbox-post">
+            <div class="post-source-icon" aria-hidden="true">{{ post.sourceInitial }}</div>
+            <div class="post-content">
+              <div class="post-meta"><strong>{{ post.source }}</strong><span>{{ post.receivedAt }}</span></div>
+              <p>{{ post.text }}</p>
+              <span class="post-group"><span class="material-symbols-outlined" aria-hidden="true">forum</span>{{ post.group }}</span>
+            </div>
+            <span class="review-status"><span></span> New post</span>
+          </article>
+        }
+      </section>
+    }
+  </main>
+
+  <footer class="app-footer">
+    <span>TRAINLEAD <span class="footer-dot">/</span> TRAINING NETWORK</span>
+    <span>BUILT FOR PEOPLE WHO TEACH</span>
+  </footer>
+</div>

@@ -1,0 +1,50 @@
+<article class="requirement-card">
+  <div class="card-main">
+    <div class="card-heading">
+      <div class="card-title-group">
+        <h3>{{ requirement().title }}</h3>
+        <span class="location"><span class="material-symbols-outlined" aria-hidden="true">location_on</span>{{ requirement().city }}</span>
+      </div>
+      <span class="opportunity-label">OPEN</span>
+    </div>
+
+    <div class="card-tags">
+      @for (skill of requirement().stack; track skill) {
+        <span class="skill-tag">{{ skill }}</span>
+      }
+      @if (requirement().postingCount > 1) {
+        <span class="repeat-tag"><span class="material-symbols-outlined" aria-hidden="true">repeat</span>Seen {{ requirement().postingCount }} times</span>
+      }
+    </div>
+
+    <div class="details-row">
+      <span><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>{{ requirement().dateLabel }}</span>
+      <span><span class="material-symbols-outlined" aria-hidden="true">schedule</span>{{ requirement().durationDays }} days</span>
+      <span><span class="material-symbols-outlined" aria-hidden="true">school</span>{{ requirement().audience }}</span>
+    </div>
+
+    <div class="support-strip" aria-label="Travel, food and stay support">
+      <span class="support-label">TFA</span>
+      @for (item of requirement().support; track item.label) {
+        <span class="support-item">
+          <span class="support-name">{{ item.label }}</span>
+          <span class="support-status" [class.is-provided]="item.status === 'Provided'">{{ item.status }}</span>
+        </span>
+      }
+    </div>
+  </div>
+
+  <div class="card-footer">
+    <div class="source-summary">
+      <div class="source-stack" aria-hidden="true">
+        @for (source of requirement().sources.slice(0, 3); track source; let index = $index) {
+          <span [class]="'source-bubble source-' + index">{{ source.charAt(0) }}</span>
+        }
+      </div>
+      <span>{{ requirement().postingCount }} {{ requirement().postingCount === 1 ? 'posting' : 'postings' }}<span class="footer-separator">·</span>{{ requirement().groupCount }} {{ requirement().groupCount === 1 ? 'group' : 'groups' }}</span>
+    </div>
+    @if (requirement().paymentDate) {
+      <span class="payment-date"><span class="material-symbols-outlined" aria-hidden="true">payments</span>Payment {{ requirement().paymentDate }}</span>
+    }
+  </div>
+</article>

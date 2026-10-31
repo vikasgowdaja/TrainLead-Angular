@@ -1,0 +1,26 @@
+{
+  "name": "trainlead",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.16.0",
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "predev": "npm run build --workspace=@trainlead/shared",
+    "dev": "concurrently -k -n api,web \"npm run dev --workspace=@trainlead/server\" \"npm run start --workspace=@trainlead/client -- --host 127.0.0.1\"",
+    "build": "npm run build --workspace=@trainlead/shared && npm run build --workspace=@trainlead/server && npm run build --workspace=@trainlead/client",
+    "test": "npm run test --workspace=@trainlead/client -- --watch=false && npm run test --workspace=@trainlead/server",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "concurrently": "10.0.6",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

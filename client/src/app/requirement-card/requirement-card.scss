@@ -1,0 +1,64 @@
+:host { display: block; }
+
+.requirement-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  animation: card-arrive 360ms ease both;
+}
+
+.requirement-card:hover { border-color: color-mix(in srgb, var(--brand) 42%, var(--line)); }
+.card-main { padding: 18px 19px 13px; }
+.card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.card-title-group { min-width: 0; }
+.card-title-group h3 { margin: 0 0 5px; color: var(--ink); font-family: 'Fraunces', Georgia, serif; font-size: 18px; font-weight: 560; line-height: 1.28; }
+.location { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-size: 11px; }
+.location .material-symbols-outlined { color: var(--accent); font-size: 15px; }
+.opportunity-label { flex: 0 0 auto; padding: 5px 7px; border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent); border-radius: 3px; color: var(--brand); font-size: 9px; font-weight: 700; letter-spacing: .8px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.skill-tag,
+.repeat-tag { display: inline-flex; align-items: center; min-height: 25px; padding: 0 8px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+.skill-tag { background: #edf2ef; color: #465e57; }
+:host-context(.dark-theme) .skill-tag { background: #2b403b; color: #c1d5cd; }
+.repeat-tag { gap: 4px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: #a4502c; }
+:host-context(.dark-theme) .repeat-tag { color: #f2a078; }
+.repeat-tag .material-symbols-outlined { font-size: 14px; }
+.details-row { display: flex; flex-wrap: wrap; gap: 9px 18px; margin-top: 15px; }
+.details-row > span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10px; }
+.details-row .material-symbols-outlined { color: var(--brand); font-size: 15px; }
+.support-strip { display: flex; align-items: center; gap: 0; margin-top: 15px; padding: 9px 11px; border: 1px dashed var(--line); border-radius: 4px; }
+.support-label { margin-right: 12px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .7px; }
+.support-item { display: flex; align-items: center; gap: 5px; padding: 0 10px; border-left: 1px solid var(--line); }
+.support-name { color: var(--muted); font-size: 9px; }
+.support-status { color: var(--muted); font-size: 9px; font-weight: 600; }
+.support-status.is-provided { color: var(--brand); }
+.card-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 9px; min-height: 48px; padding: 8px 19px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 52%, var(--panel)); }
+.source-summary { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; }
+.source-stack { display: inline-flex; padding-left: 2px; }
+.source-bubble { display: grid; width: 22px; height: 22px; margin-left: -3px; place-items: center; border: 2px solid var(--panel); border-radius: 50%; font-size: 8px; font-weight: 700; }
+.source-0 { background: #dceddf; color: #32724b; }
+.source-1 { background: #f6e5d8; color: #9a5c35; }
+.source-2 { background: #dde8ed; color: #416879; }
+.footer-separator { padding: 0 5px; color: var(--line); }
+.payment-date { display: inline-flex; align-items: center; gap: 4px; color: #a45b35; font-size: 10px; font-weight: 600; }
+.payment-date .material-symbols-outlined { font-size: 15px; }
+
+@keyframes card-arrive {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .requirement-card { animation: none; }
+}
+
+@media (max-width: 480px) {
+  .card-main { padding: 15px 13px 11px; }
+  .card-title-group h3 { font-size: 16px; }
+  .support-strip { justify-content: space-between; padding-inline: 8px; }
+  .support-label { margin-right: 5px; }
+  .support-item { gap: 3px; padding: 0 5px; }
+  .support-name, .support-status { font-size: 8px; }
+  .card-footer { padding-inline: 13px; }
+}
