@@ -8,7 +8,7 @@ describe('RequirementDraftSchema', () => {
       startDate: '2026-11-02',
       endDate: '2026-11-07',
       durationDays: 6,
-      college: 'Engineering college',
+      college: null,
       city: 'Mysuru',
       audience: '6th sem engineering students',
       tfa: 'Provided',
@@ -36,7 +36,21 @@ describe('RequirementDraftSchema', () => {
       startDate: '2 Nov',
       endDate: '2026-11-07',
       durationDays: 6,
-      college: 'Engineering college',
+      college: null,
+      city: 'Mysuru',
+      audience: '6th sem engineering students',
+      summary: 'Six-day AngularJS workshop in Mysuru.',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an end date before the start date', () => {
+    const result = RequirementDraftSchema.safeParse({
+      technologyStack: ['AngularJS'],
+      startDate: '2026-11-07',
+      endDate: '2026-11-02',
+      durationDays: 6,
       city: 'Mysuru',
       audience: '6th sem engineering students',
       summary: 'Six-day AngularJS workshop in Mysuru.',

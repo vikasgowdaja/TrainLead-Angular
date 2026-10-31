@@ -5,6 +5,8 @@ import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
 import pino from 'pino';
 import { pinoHttp } from 'pino-http';
+import { connectDatabase } from './database.js';
+import { requirementsRouter } from './routes/requirements.js';
 
 const logger = pino({
   redact: {
@@ -49,14 +51,26 @@ app.get('/api/health', (_request, response) => {
   response.json({ status: 'ok', service: 'trainlead-api' });
 });
 
+app.use('/api/requirements', requirementsRouter);
+
 app.use((_request, response) => {
   response.status(404).json({ error: 'Route not found' });
+});
+
+app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+  logger.error({ errorName: error instanceof Error ? error.name : 'UnknownError' }, 'Request failed');
+  response.status(500).json({ error: 'Internal server error' });
 });
 
 const port = Number(process.env.PORT ?? 3000);
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(port, () => logger.info({ port }, 'TrainLead API listening'));
+  connectDatabase()
+    .then(() => app.listen(port, () => logger.info({ port }, 'TrainLead API listening')))
+    .catch((error: unknown) => {
+      logger.fatal({ errorName: error instanceof Error ? error.name : 'UnknownError' }, 'Could not connect to MongoDB');
+      process.exitCode = 1;
+    });
 }
 
 export { app };
