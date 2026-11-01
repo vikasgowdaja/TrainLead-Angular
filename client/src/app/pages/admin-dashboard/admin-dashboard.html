@@ -1,0 +1,53 @@
+<main class="app-shell admin-dashboard">
+  <header class="admin-heading">
+    <div>
+      <p class="eyebrow">TRAINLEAD <span>/</span> ADMINISTRATION</p>
+      <h1>Marketplace overview</h1>
+      <p>Accounts, organizations, and requirement lifecycle across TrainLead.</p>
+    </div>
+    <nav aria-label="Admin tools">
+      <a routerLink="/">Marketplace</a>
+      <a routerLink="/skills">Skills</a>
+      <a routerLink="/admin/users">Users</a>
+      <a routerLink="/admin/organizations">Organizations</a>
+      <button class="icon-button" type="button" title="Sign out" aria-label="Sign out" (click)="logout()"><span class="material-symbols-outlined" aria-hidden="true">logout</span></button>
+    </nav>
+  </header>
+
+  @if (loading()) {
+    <div class="admin-metrics" aria-label="Loading analytics">
+      @for (slot of [1, 2, 3, 4, 5, 6]; track slot) { <div class="metric-skeleton" aria-hidden="true"></div> }
+    </div>
+  } @else if (errorMessage(); as message) {
+    <div class="state-banner error-banner" role="alert"><span>{{ message }}</span><button type="button" (click)="load()">Retry</button></div>
+  } @else if (analytics(); as data) {
+    <section class="admin-metrics" aria-label="Marketplace analytics">
+      <article class="admin-metric"><span>Trainer accounts</span><strong>{{ data.trainerAccounts }}</strong><small>Onboarded trainers</small></article>
+      <article class="admin-metric"><span>Vendor accounts</span><strong>{{ data.vendorAccounts }}</strong><small>Registered vendors</small></article>
+      <article class="admin-metric"><span>Organizations</span><strong>{{ data.organizations }}</strong><small>{{ data.verifiedOrganizations }} verified</small></article>
+      <article class="admin-metric"><span>Opportunities</span><strong>{{ data.totalOpportunities }}</strong><small>{{ data.activeOpportunities }} active</small></article>
+      <article class="admin-metric"><span>Requirement posts</span><strong>{{ data.totalRequirements }}</strong><small>{{ data.sourcePosts }} source posts</small></article>
+      <article class="admin-metric"><span>Inbox pending</span><strong>{{ data.inboxPending }}</strong><small>Messages awaiting action</small></article>
+    </section>
+
+    <section class="admin-status-section" aria-labelledby="status-title">
+      <div class="admin-section-heading"><div><p class="eyebrow">LIFECYCLE</p><h2 id="status-title">Requirements by status</h2></div><a routerLink="/">Browse marketplace</a></div>
+      <div class="status-grid">
+        @for (status of statuses; track status) {
+          <article class="status-metric"><span>{{ status }}</span><strong>{{ data.requirementsByStatus[status] }}</strong></article>
+        }
+      </div>
+    </section>
+
+    <section class="admin-recent" aria-labelledby="recent-title">
+      <div class="admin-section-heading"><div><p class="eyebrow">UPDATED {{ data.lastUpdatedAt ? (data.lastUpdatedAt | date: 'medium') : '—' }}</p><h2 id="recent-title">Recently changed requirements</h2></div></div>
+      @if (requirements().length === 0) {
+        <p class="empty-state">No requirements have been posted yet.</p>
+      } @else {
+        <div class="table-wrap"><table class="users-table"><thead><tr><th scope="col">Requirement</th><th scope="col">Vendor</th><th scope="col">Location</th><th scope="col">Training date</th><th scope="col">Status</th><th scope="col">Edit</th></tr></thead>
+          <tbody>@for (item of requirements(); track item.id) { <tr><td>{{ item.title }}</td><td>{{ item.organization.name }}</td><td>{{ item.city }}</td><td>{{ formatDate(item.startDate) }}</td><td><span class="role-pill">{{ item.status }}</span></td><td><a class="text-link" [routerLink]="['/requirements', item.id]">Manage</a></td></tr> }</tbody>
+        </table></div>
+      }
+    </section>
+  }
+</main>

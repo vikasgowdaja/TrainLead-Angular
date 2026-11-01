@@ -17,6 +17,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/forbidden/forbidden').then((m) => m.ForbiddenPage),
   },
   {
+    path: 'admin',
+    canActivate: [roleGuard('Admin')],
+    loadComponent: () => import('./pages/admin-dashboard/admin-dashboard').then((m) => m.AdminDashboardPage),
+  },
+  {
     path: 'admin/users',
     canActivate: [roleGuard('Admin')],
     loadComponent: () => import('./pages/admin-users/admin-users').then((m) => m.AdminUsersPage),

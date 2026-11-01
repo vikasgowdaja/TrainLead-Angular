@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './config/env.js';
 import bcrypt from 'bcryptjs';
 import { RequirementInputSchema } from '@trainlead/shared';
 import { connectDatabase, disconnectDatabase } from './database.js';
@@ -28,13 +28,16 @@ async function seedAdmin(): Promise<void> {
     },
     { upsert: true },
   );
-  console.info(`Admin account ready: ${email}`);
+  console.info('Admin account ready.');
 }
 
 async function seed(): Promise<void> {
   await connectDatabase();
   try {
     await seedAdmin();
+    if (process.argv.includes('--admin-only')) {
+      return;
+    }
     const sources = [
       {
         name: 'SkillBridge Academy',

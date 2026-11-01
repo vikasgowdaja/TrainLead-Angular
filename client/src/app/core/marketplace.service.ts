@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import type { InboxCaptureInput, OrganizationInput, RequirementInput, RequirementQuery, SourceInput } from '@trainlead/shared';
 import type {
   DashboardStats,
+  AdminAnalytics,
   ExtractedRequirement,
   InboxItemView,
   OrganizationMemberView,
@@ -31,6 +32,10 @@ export class MarketplaceService {
 
   getStats(): Observable<{ data: DashboardStats }> {
     return this.http.get<{ data: DashboardStats }>('/api/requirements/stats');
+  }
+
+  getAdminAnalytics(): Observable<{ data: AdminAnalytics }> {
+    return this.http.get<{ data: AdminAnalytics }>('/api/admin/analytics');
   }
 
   getMyOrganization(): Observable<{ data: OrganizationView }> {

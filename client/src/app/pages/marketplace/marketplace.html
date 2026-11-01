@@ -45,6 +45,7 @@
       </button>
       @if (auth.currentUser(); as user) {
         @if (user.role === 'Admin') {
+          <a class="text-link" routerLink="/admin">Admin</a>
           <a class="text-link" routerLink="/admin/users">Users</a>
           <a class="text-link" routerLink="/admin/organizations">Organizations</a>
         }

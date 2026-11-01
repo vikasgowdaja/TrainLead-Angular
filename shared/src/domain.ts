@@ -174,6 +174,20 @@ export interface DashboardStats {
   topVendors: (VendorRef & { sourceCount: number })[];
 }
 
+export interface AdminAnalytics {
+  trainerAccounts: number;
+  vendorAccounts: number;
+  organizations: number;
+  verifiedOrganizations: number;
+  totalRequirements: number;
+  totalOpportunities: number;
+  activeOpportunities: number;
+  requirementsByStatus: Record<RequirementStatus, number>;
+  sourcePosts: number;
+  inboxPending: number;
+  lastUpdatedAt: string | null;
+}
+
 export interface SkillView {
   id: string;
   name: string;
