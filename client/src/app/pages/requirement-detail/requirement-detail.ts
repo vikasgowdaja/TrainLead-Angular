@@ -1,5 +1,5 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { DemoSlotInput } from '@trainlead/shared';
 import type { ApplicationView, DemoSlotView, RequirementDetail, RequirementStatus, SourceType, SourceView, TrainerProfileView } from '@trainlead/shared/domain';
@@ -65,6 +65,22 @@ export class RequirementDetailPage {
   protected readonly savingDemoSlots = signal(false);
 
   constructor() {
+    effect((onCleanup) => {
+      const message = this.successMessage();
+      if (!message) return;
+      const timeout = window.setTimeout(() => {
+        if (this.successMessage() === message) this.successMessage.set(null);
+      }, 5000);
+      onCleanup(() => window.clearTimeout(timeout));
+    });
+    effect((onCleanup) => {
+      const message = this.errorMessage();
+      if (!message) return;
+      const timeout = window.setTimeout(() => {
+        if (this.errorMessage() === message) this.errorMessage.set(null);
+      }, 8000);
+      onCleanup(() => window.clearTimeout(timeout));
+    });
     this.load();
   }
 
