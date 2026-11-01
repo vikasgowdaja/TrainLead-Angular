@@ -34,11 +34,41 @@
         <label class="field"><span>Phone / WhatsApp</span><input type="tel" autocomplete="tel" placeholder="+919876543210" [value]="phone()" (input)="phone.set($any($event.target).value)" /></label>
         <label class="field"><span>City / location</span><input autocomplete="address-level2" [value]="location()" (input)="location.set($any($event.target).value)" placeholder="Mysuru, Karnataka" /></label>
         <label class="field field-wide"><span>Professional skills <small>(comma separated)</small></span><input [value]="skills()" (input)="skills.set($any($event.target).value)" placeholder="Angular, TypeScript, Node.js" /></label>
+        <label class="field field-wide"><span>Professional summary <small>(public when your profile is public)</small></span><textarea rows="4" maxlength="1000" [value]="bio()" (input)="bio.set($any($event.target).value)" placeholder="Describe your training experience, approach, and areas of expertise"></textarea></label>
         <label class="field"><span>Expected daily rate <small>(optional)</small></span><input type="number" min="0" [value]="expectedRate()" (input)="expectedRate.set($any($event.target).value)" /></label>
         <label class="field"><span>GitHub profile</span><input type="url" [value]="githubUrl()" (input)="githubUrl.set($any($event.target).value)" placeholder="https://github.com/username" /></label>
         <label class="field"><span>LinkedIn profile</span><input type="url" [value]="linkedinUrl()" (input)="linkedinUrl.set($any($event.target).value)" placeholder="https://linkedin.com/in/username" /></label>
         <label class="field"><span>LeetCode profile</span><input type="url" [value]="leetcodeUrl()" (input)="leetcodeUrl.set($any($event.target).value)" placeholder="https://leetcode.com/username" /></label>
-        <label class="public-profile-toggle field-wide"><input type="checkbox" [checked]="isPublic()" (change)="isPublic.set($any($event.target).checked)" /><span><strong>Make my professional profile public</strong><small>Visitors can see your photo, location, skills and profile links. Email, phone and resume stay private.</small></span></label>
+        <section class="portfolio-editor field-wide" aria-labelledby="portfolio-editor-title">
+          <div class="portfolio-editor-heading"><div><p class="eyebrow">YOUR WORK</p><h2 id="portfolio-editor-title">Portfolio projects</h2><p>Add images, short videos, or project links to showcase your work.</p></div><button class="secondary-button" type="button" [disabled]="portfolioItems().length >= 8" (click)="addPortfolioItem()">Add project</button></div>
+          @for (item of portfolioItems(); track $index; let index = $index) {
+            <fieldset class="portfolio-item-editor">
+              <legend>Project {{ index + 1 }}</legend>
+              <button class="text-button portfolio-remove" type="button" (click)="removePortfolioItem(index)">Remove</button>
+              <label class="field"><span>Project title</span><input maxlength="100" [value]="item.title" (input)="updatePortfolioItem(index, 'title', $any($event.target).value)" placeholder="Angular workshop dashboard" /></label>
+              <label class="field"><span>Description <small>(optional)</small></span><textarea rows="2" maxlength="500" [value]="item.description" (input)="updatePortfolioItem(index, 'description', $any($event.target).value)" placeholder="What you built or taught"></textarea></label>
+              <label class="field"><span>Image URL <small>(optional)</small></span><input type="url" [value]="item.imageUrl ?? ''" (input)="updatePortfolioItem(index, 'imageUrl', $any($event.target).value)" placeholder="https://.../project-preview.jpg" /></label>
+              <label class="field"><span>Short video URL <small>(optional, direct MP4/WebM)</small></span><input type="url" [value]="item.videoUrl ?? ''" (input)="updatePortfolioItem(index, 'videoUrl', $any($event.target).value)" placeholder="https://.../project-demo.mp4" /></label>
+              <label class="field"><span>Project link <small>(optional)</small></span><input type="url" [value]="item.projectUrl ?? ''" (input)="updatePortfolioItem(index, 'projectUrl', $any($event.target).value)" placeholder="https://github.com/username/project" /></label>
+            </fieldset>
+          }
+          <small class="portfolio-editor-note">Use public HTTPS URLs. Add at least one image, video, or project link per item. Up to 8 projects.</small>
+        </section>
+        <section class="certification-editor field-wide" aria-labelledby="certification-editor-title">
+          <div class="portfolio-editor-heading"><div><p class="eyebrow">CREDENTIALS</p><h2 id="certification-editor-title">Certifications</h2><p>Add certificates with a public verification link.</p></div><button class="secondary-button" type="button" [disabled]="certifications().length >= 20" (click)="addCertification()">Add certification</button></div>
+          @for (credential of certifications(); track $index; let index = $index) {
+            <fieldset class="portfolio-item-editor credential-item-editor">
+              <legend>Certification {{ index + 1 }}</legend>
+              <button class="text-button portfolio-remove" type="button" (click)="removeCertification(index)">Remove</button>
+              <label class="field"><span>Certification name</span><input maxlength="120" [value]="credential.name" (input)="updateCertification(index, 'name', $any($event.target).value)" placeholder="AWS Certified Developer" /></label>
+              <label class="field"><span>Issuing organization <small>(optional)</small></span><input maxlength="120" [value]="credential.issuer" (input)="updateCertification(index, 'issuer', $any($event.target).value)" placeholder="Amazon Web Services" /></label>
+              <label class="field"><span>Issue date <small>(optional)</small></span><input type="date" [value]="credential.issuedDate ?? ''" (input)="updateCertification(index, 'issuedDate', $any($event.target).value)" /></label>
+              <label class="field field-wide"><span>Credential verification URL</span><input type="url" required [value]="credential.credentialUrl" (input)="updateCertification(index, 'credentialUrl', $any($event.target).value)" placeholder="https://..." /></label>
+            </fieldset>
+          }
+          <small class="portfolio-editor-note">Credential links are public when your profile is public. Up to 20 certifications.</small>
+        </section>
+        <label class="public-profile-toggle field-wide"><input type="checkbox" [checked]="isPublic()" (change)="isPublic.set($any($event.target).checked)" /><span><strong>Make my professional profile public</strong><small>Visitors can see your photo, location, skills, summary, work, certifications and profile links. Email, phone and resume stay private.</small></span></label>
         @if (current.isPublic) { <a class="public-profile-link field-wide" [routerLink]="['/trainers', current.publicSlug || current.id]">View your public profile</a> }
         <p class="panel-footnote trainer-contact-note">Keep at least one contact method on your account.</p>
         <div class="form-actions field-wide"><button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save profile' }}</button></div>

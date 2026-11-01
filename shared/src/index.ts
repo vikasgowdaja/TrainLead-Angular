@@ -47,6 +47,26 @@ const ResumeUrlSchema = z.url().trim().max(500).refine(isHttpsUrl, 'Enter an HTT
 const GitHubUrlSchema = serviceUrl(['github.com', 'www.github.com'], 'GitHub');
 const LinkedInUrlSchema = serviceUrl(['linkedin.com', 'www.linkedin.com'], 'LinkedIn');
 const LeetCodeUrlSchema = serviceUrl(['leetcode.com', 'www.leetcode.com'], 'LeetCode');
+const PublicAssetUrlSchema = z.string().trim().max(1000).url().refine(isHttpsUrl, 'Enter a public HTTPS URL.').nullable().default(null);
+
+export const TrainerPortfolioItemSchema = z.object({
+  title: text(100).min(1),
+  description: text(500).default(''),
+  imageUrl: PublicAssetUrlSchema,
+  videoUrl: PublicAssetUrlSchema,
+  projectUrl: PublicAssetUrlSchema,
+}).superRefine(({ imageUrl, videoUrl, projectUrl }, context) => {
+  if (!imageUrl && !videoUrl && !projectUrl) {
+    context.addIssue({ code: 'custom', message: 'Add an image, video, or project link.', path: ['imageUrl'] });
+  }
+});
+
+export const TrainerCertificationSchema = z.object({
+  name: text(120).min(2),
+  issuer: text(120).default(''),
+  issuedDate: IsoDate.nullable().default(null),
+  credentialUrl: z.string().trim().max(1000).url().refine(isHttpsUrl, 'Enter a public HTTPS credential URL.'),
+});
 
 function matchesMeetingProvider(value: string, provider: (typeof INTERVIEW_PROVIDERS)[number]): boolean {
   try {
@@ -89,6 +109,9 @@ export const TrainerProfileUpdateSchema = z.object({
   githubUrl: GitHubUrlSchema.nullable().default(null),
   linkedinUrl: LinkedInUrlSchema.nullable().default(null),
   leetcodeUrl: LeetCodeUrlSchema.nullable().default(null),
+  bio: text(1000).default(''),
+  portfolioItems: z.array(TrainerPortfolioItemSchema).max(8).default([]),
+  certifications: z.array(TrainerCertificationSchema).max(20).default([]),
   isPublic: z.boolean().default(false),
 }).refine((profile) => profile.email || profile.phone, {
   message: 'Provide an email address or phone number.',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AddMemberSchema, ApplicationDecisionSchema, ApplyToRequirementSchema, CreateRequirementSchema, DemoSlotsUpdateSchema, InterviewScheduleSchema, RequirementInputSchema, RequirementQuerySchema, TrainerProfileUpdateSchema, TrainerProjectReviewSchema, canTransition, skillKey } from './index.js';
+import { AddMemberSchema, ApplicationDecisionSchema, ApplyToRequirementSchema, CreateRequirementSchema, DemoSlotsUpdateSchema, InterviewScheduleSchema, RequirementInputSchema, RequirementQuerySchema, TrainerCertificationSchema, TrainerPortfolioItemSchema, TrainerProfileUpdateSchema, TrainerProjectReviewSchema, canTransition, skillKey } from './index.js';
 
 const mysuru = {
   title: 'AngularJS foundations for engineering students',
@@ -69,6 +69,29 @@ describe('TrainerProfileUpdateSchema', () => {
 
   it('rejects profile links hosted on unrelated domains', () => {
     expect(TrainerProfileUpdateSchema.safeParse({ name: 'Ananya Rao', email: 'a@b.co', phone: null, githubUrl: 'https://example.com' }).success).toBe(false);
+  });
+});
+
+describe('TrainerPortfolioItemSchema', () => {
+  it('accepts public HTTPS work media and rejects invalid or empty links', () => {
+    expect(TrainerPortfolioItemSchema.safeParse({
+      title: 'Angular training demo',
+      imageUrl: 'https://cdn.example.com/angular-demo.jpg',
+      videoUrl: 'https://cdn.example.com/angular-demo.mp4',
+      projectUrl: 'https://github.com/example/angular-demo',
+    }).success).toBe(true);
+    expect(TrainerPortfolioItemSchema.safeParse({ title: 'Private link', projectUrl: 'http://example.com' }).success).toBe(false);
+    expect(TrainerPortfolioItemSchema.safeParse({ title: 'Empty project' }).success).toBe(false);
+  });
+});
+
+describe('TrainerCertificationSchema', () => {
+  it('accepts a dated credential with a public HTTPS verification link', () => {
+    expect(TrainerCertificationSchema.safeParse({
+      name: 'AWS Certified Developer', issuer: 'Amazon Web Services',
+      issuedDate: '2025-03-15', credentialUrl: 'https://example.com/credentials/aws',
+    }).success).toBe(true);
+    expect(TrainerCertificationSchema.safeParse({ name: 'AWS Certified Developer', credentialUrl: 'http://example.com/certificate' }).success).toBe(false);
   });
 });
 

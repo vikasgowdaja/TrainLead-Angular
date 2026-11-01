@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { PublicTrainerProfileView } from '@trainlead/shared/domain';
@@ -6,7 +7,7 @@ import { describeHttpError } from '../../core/http-error';
 
 @Component({
   selector: 'app-public-trainer-profile',
-  imports: [RouterLink],
+  imports: [DatePipe, RouterLink],
   templateUrl: './public-trainer-profile.html',
 })
 export class PublicTrainerProfilePage {

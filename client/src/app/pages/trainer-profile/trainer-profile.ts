@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { TrainerProfileUpdateInput } from '@trainlead/shared';
-import type { TrainerProfileSuggestions, TrainerProfileView } from '@trainlead/shared/domain';
+import type { TrainerCertification, TrainerPortfolioItem, TrainerProfileSuggestions, TrainerProfileView } from '@trainlead/shared/domain';
 import { finalize } from 'rxjs';
 import { ResumePreview } from '../../resume-preview';
 import { MarketplaceService } from '../../core/marketplace.service';
@@ -33,6 +33,9 @@ export class TrainerProfilePage {
   protected readonly githubUrl = signal('');
   protected readonly linkedinUrl = signal('');
   protected readonly leetcodeUrl = signal('');
+  protected readonly bio = signal('');
+  protected readonly portfolioItems = signal<TrainerPortfolioItem[]>([]);
+  protected readonly certifications = signal<TrainerCertification[]>([]);
   protected readonly isPublic = signal(false);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
@@ -66,6 +69,20 @@ export class TrainerProfilePage {
     const githubUrl = this.githubUrl().trim();
     const linkedinUrl = this.linkedinUrl().trim();
     const leetcodeUrl = this.leetcodeUrl().trim();
+    const bio = this.bio().trim();
+    const portfolioItems = this.portfolioItems().map((item) => ({
+      title: item.title.trim(),
+      description: item.description.trim(),
+      imageUrl: item.imageUrl?.trim() || null,
+      videoUrl: item.videoUrl?.trim() || null,
+      projectUrl: item.projectUrl?.trim() || null,
+    }));
+    const certifications = this.certifications().map((item) => ({
+      name: item.name.trim(),
+      issuer: item.issuer.trim(),
+      issuedDate: item.issuedDate || null,
+      credentialUrl: item.credentialUrl.trim(),
+    }));
     if (name.length < 2) { this.errorMessage.set('Enter your name.'); return; }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.errorMessage.set('Enter a valid email address.'); return; }
     if (phone && !/^\+?[0-9]{10,15}$/.test(phone)) { this.errorMessage.set('Enter 10-15 digits for your phone number.'); return; }
@@ -75,13 +92,26 @@ export class TrainerProfilePage {
     if (!this.isValidProfileUrl(githubUrl, 'github.com')) { this.errorMessage.set('Enter a valid HTTPS GitHub profile link.'); return; }
     if (!this.isValidProfileUrl(linkedinUrl, 'linkedin.com')) { this.errorMessage.set('Enter a valid HTTPS LinkedIn profile link.'); return; }
     if (!this.isValidProfileUrl(leetcodeUrl, 'leetcode.com')) { this.errorMessage.set('Enter a valid HTTPS LeetCode profile link.'); return; }
+    if (bio.length > 1000) { this.errorMessage.set('Keep your profile summary to 1,000 characters or fewer.'); return; }
+    if (portfolioItems.length > 8 || portfolioItems.some((item) => item.title.length === 0 || (!item.imageUrl && !item.videoUrl && !item.projectUrl))) {
+      this.errorMessage.set('Each work item needs a title and at least one image, video, or project link. You can add up to 8 items.');
+      return;
+    }
+    if (portfolioItems.some((item) => !this.isValidHttpsUrl(item.imageUrl) || !this.isValidHttpsUrl(item.videoUrl) || !this.isValidHttpsUrl(item.projectUrl))) {
+      this.errorMessage.set('Portfolio images, videos, and links must use HTTPS URLs.');
+      return;
+    }
+    if (certifications.length > 20 || certifications.some((item) => item.name.length < 2 || !this.isValidHttpsUrl(item.credentialUrl))) {
+      this.errorMessage.set('Each certification needs a name and a valid HTTPS credential link. You can add up to 20.');
+      return;
+    }
     this.saving.set(true);
     this.errorMessage.set(null);
     this.successMessage.set(null);
     const input: TrainerProfileUpdateInput = {
       name, email: email || null, phone: phone || null, location: location || null, skills,
       expectedRate, githubUrl: githubUrl || null, linkedinUrl: linkedinUrl || null,
-      leetcodeUrl: leetcodeUrl || null, isPublic: this.isPublic(),
+      leetcodeUrl: leetcodeUrl || null, bio, portfolioItems, certifications, isPublic: this.isPublic(),
     };
     this.api.updateTrainerProfile(input)
       .pipe(finalize(() => this.saving.set(false)))
@@ -89,6 +119,43 @@ export class TrainerProfilePage {
         next: ({ data }) => { this.setProfile(data); this.successMessage.set('Profile updated.'); },
         error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
       });
+  }
+
+  protected addPortfolioItem(): void {
+    if (this.portfolioItems().length >= 8) return;
+    this.portfolioItems.update((items) => [...items, { title: '', description: '', imageUrl: null, videoUrl: null, projectUrl: null }]);
+  }
+
+  protected removePortfolioItem(index: number): void {
+    this.portfolioItems.update((items) => items.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  protected updatePortfolioItem(index: number, field: 'title' | 'description' | 'imageUrl' | 'videoUrl' | 'projectUrl', value: string): void {
+    this.portfolioItems.update((items) => items.map((item, itemIndex) => {
+      if (itemIndex !== index) return item;
+      if (field === 'title') return { ...item, title: value };
+      if (field === 'description') return { ...item, description: value };
+      return { ...item, [field]: value.trim() || null };
+    }));
+  }
+
+  protected addCertification(): void {
+    if (this.certifications().length >= 20) return;
+    this.certifications.update((items) => [...items, { name: '', issuer: '', issuedDate: null, credentialUrl: '' }]);
+  }
+
+  protected removeCertification(index: number): void {
+    this.certifications.update((items) => items.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  protected updateCertification(index: number, field: 'name' | 'issuer' | 'issuedDate' | 'credentialUrl', value: string): void {
+    this.certifications.update((items) => items.map((item, itemIndex) => {
+      if (itemIndex !== index) return item;
+      if (field === 'name') return { ...item, name: value };
+      if (field === 'issuer') return { ...item, issuer: value };
+      if (field === 'issuedDate') return { ...item, issuedDate: value || null };
+      return { ...item, credentialUrl: value.trim() };
+    }));
   }
 
   protected onPhotoSelected(event: Event): void {
@@ -151,6 +218,9 @@ export class TrainerProfilePage {
     this.githubUrl.set(profile.githubUrl ?? '');
     this.linkedinUrl.set(profile.linkedinUrl ?? '');
     this.leetcodeUrl.set(profile.leetcodeUrl ?? '');
+    this.bio.set(profile.bio ?? '');
+    this.portfolioItems.set(profile.portfolioItems ?? []);
+    this.certifications.set(profile.certifications ?? []);
     this.isPublic.set(profile.isPublic);
   }
 
@@ -162,6 +232,11 @@ export class TrainerProfilePage {
     } catch {
       return false;
     }
+  }
+
+  private isValidHttpsUrl(value: string | null): boolean {
+    if (!value) return true;
+    try { return new URL(value).protocol === 'https:'; } catch { return false; }
   }
 
   private applyResumeSuggestions(suggestions: TrainerProfileSuggestions): string[] {

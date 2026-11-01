@@ -12,7 +12,8 @@
         </div>
         <div class="public-profile-actions"><a class="primary-button" routerLink="/register">Create a trainer profile</a><a class="public-profile-signin" routerLink="/login">Already a member? Sign in</a></div>
       </header>
-      <nav class="public-profile-nav" aria-label="Profile sections"><a href="#expertise">Skills</a><a href="#portfolio">Professional links</a></nav>
+      <nav class="public-profile-nav" aria-label="Profile sections"><a href="#expertise">Skills</a><a href="#portfolio">Professional links</a>@if (trainer.portfolioItems.length) { <a href="#work">Work</a> }@if (trainer.certifications.length) { <a href="#certifications">Certifications</a> }</nav>
+      @if (trainer.bio) { <section class="public-profile-bio" aria-labelledby="public-bio-title"><p class="eyebrow">ABOUT</p><h2 id="public-bio-title">Professional summary</h2><p>{{ trainer.bio }}</p></section> }
       <div class="public-trainer-sections">
         <section class="public-profile-section" id="expertise" aria-labelledby="public-skills-title">
           <div class="public-section-heading"><div><p class="eyebrow">EXPERTISE</p><h2 id="public-skills-title">Skills</h2></div><span class="public-profile-count">{{ trainer.skills.length }}</span></div>
@@ -29,6 +30,34 @@
           </nav>
         </section>
       </div>
+      @if (trainer.portfolioItems.length) {
+        <section class="public-profile-work" id="work" aria-labelledby="public-work-title">
+          <div class="public-section-heading"><div><p class="eyebrow">SELECTED WORK</p><h2 id="public-work-title">Projects and demos</h2></div><span class="public-profile-count">{{ trainer.portfolioItems.length }}</span></div>
+          <div class="public-work-grid">
+            @for (item of trainer.portfolioItems; track $index) {
+              <article class="public-work-item">
+                @if (item.imageUrl) { <img class="public-work-image" [src]="item.imageUrl" [alt]="item.title + ' preview'" loading="lazy" /> }
+                @if (item.videoUrl) { <video class="public-work-video" [src]="item.videoUrl" controls preload="metadata" playsinline>{{ item.title }} video</video> }
+                <div class="public-work-copy"><h3>{{ item.title }}</h3>@if (item.description) { <p>{{ item.description }}</p> }@if (item.projectUrl) { <a [href]="item.projectUrl" target="_blank" rel="noopener noreferrer">View project <span class="material-symbols-outlined" aria-hidden="true">north_east</span></a> }</div>
+              </article>
+            }
+          </div>
+        </section>
+      }
+      @if (trainer.certifications.length) {
+        <section class="public-profile-certifications" id="certifications" aria-labelledby="public-certifications-title">
+          <div class="public-section-heading"><div><p class="eyebrow">CREDENTIALS</p><h2 id="public-certifications-title">Certifications</h2></div><span class="public-profile-count">{{ trainer.certifications.length }}</span></div>
+          <div class="public-certification-list">
+            @for (credential of trainer.certifications; track $index) {
+              <article class="public-certification-item">
+                <span class="material-symbols-outlined certification-mark" aria-hidden="true">workspace_premium</span>
+                <div><h3>{{ credential.name }}</h3><p>@if (credential.issuer) { {{ credential.issuer }} }@if (credential.issuer && credential.issuedDate) { <span> · </span> }@if (credential.issuedDate) { <time>{{ credential.issuedDate | date: 'MMM y' }}</time> }</p></div>
+                <a [href]="credential.credentialUrl" target="_blank" rel="noopener noreferrer" aria-label="Verify {{ credential.name }}">Verify<span class="material-symbols-outlined" aria-hidden="true">north_east</span></a>
+              </article>
+            }
+          </div>
+        </section>
+      }
       <section class="public-profile-join" aria-labelledby="public-profile-join-title"><div><p class="eyebrow">YOUR NEXT STEP</p><h2 id="public-profile-join-title">Make your expertise discoverable.</h2><p>Create a TrainLead trainer profile to connect with organizations looking for your skills.</p></div><a class="primary-button" routerLink="/register">Join TrainLead</a></section>
     }
   </section>

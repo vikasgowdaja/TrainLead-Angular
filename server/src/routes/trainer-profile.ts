@@ -16,7 +16,7 @@ router.get('/:id/public', async (request, response) => {
     ? { _id: objectId(identifier, 'trainer id') }
     : { publicSlug: identifier };
   const trainer = await User.findOne({ ...lookup, role: 'Trainer', isPublic: true, deletedAt: null } as never)
-    .select('name publicSlug photoUrl location skills githubUrl linkedinUrl leetcodeUrl')
+    .select('name publicSlug photoUrl location skills githubUrl linkedinUrl leetcodeUrl bio portfolioItems certifications')
     .lean();
   if (!trainer) throw new HttpError(404, 'Public trainer profile not found.');
   const data: PublicTrainerProfileView = {
@@ -29,6 +29,20 @@ router.get('/:id/public', async (request, response) => {
     githubUrl: trainer.githubUrl ?? null,
     linkedinUrl: trainer.linkedinUrl ?? null,
     leetcodeUrl: trainer.leetcodeUrl ?? null,
+    bio: trainer.bio ?? '',
+    portfolioItems: (trainer.portfolioItems ?? []).map((item) => ({
+      title: item.title,
+      description: item.description ?? '',
+      imageUrl: item.imageUrl ?? null,
+      videoUrl: item.videoUrl ?? null,
+      projectUrl: item.projectUrl ?? null,
+    })),
+    certifications: (trainer.certifications ?? []).map((credential) => ({
+      name: credential.name,
+      issuer: credential.issuer ?? '',
+      issuedDate: credential.issuedDate ?? null,
+      credentialUrl: credential.credentialUrl,
+    })),
   };
   response.json({ data });
 });
@@ -68,7 +82,7 @@ function validFileSignature(file: Express.Multer.File, kind: TrainerAssetKind): 
   return file.mimetype === 'image/webp' && file.buffer.toString('ascii', 0, 4) === 'RIFF' && file.buffer.toString('ascii', 8, 12) === 'WEBP';
 }
 
-function presentProfile(user: { _id: unknown; name: string; email?: string | null; phone?: string | null; photoUrl?: string | null; resumeUrl?: string | null; resumeFileName?: string | null; location?: string; skills?: string[]; expectedRate?: number | null; githubUrl?: string | null; linkedinUrl?: string | null; leetcodeUrl?: string | null; isPublic?: boolean; publicSlug?: string | null }): TrainerProfileView {
+function presentProfile(user: { _id: unknown; name: string; email?: string | null; phone?: string | null; photoUrl?: string | null; resumeUrl?: string | null; resumeFileName?: string | null; location?: string; skills?: string[]; expectedRate?: number | null; githubUrl?: string | null; linkedinUrl?: string | null; leetcodeUrl?: string | null; bio?: string; portfolioItems?: { title: string; description?: string; imageUrl?: string | null; videoUrl?: string | null; projectUrl?: string | null }[]; certifications?: { name: string; issuer?: string; issuedDate?: string | null; credentialUrl: string }[]; isPublic?: boolean; publicSlug?: string | null }): TrainerProfileView {
   return {
     id: String(user._id),
     name: user.name,
@@ -83,6 +97,20 @@ function presentProfile(user: { _id: unknown; name: string; email?: string | nul
     githubUrl: user.githubUrl ?? null,
     linkedinUrl: user.linkedinUrl ?? null,
     leetcodeUrl: user.leetcodeUrl ?? null,
+    bio: user.bio ?? '',
+    portfolioItems: (user.portfolioItems ?? []).map((item) => ({
+      title: item.title,
+      description: item.description ?? '',
+      imageUrl: item.imageUrl ?? null,
+      videoUrl: item.videoUrl ?? null,
+      projectUrl: item.projectUrl ?? null,
+    })),
+    certifications: (user.certifications ?? []).map((credential) => ({
+      name: credential.name,
+      issuer: credential.issuer ?? '',
+      issuedDate: credential.issuedDate ?? null,
+      credentialUrl: credential.credentialUrl,
+    })),
     isPublic: user.isPublic ?? false,
     publicSlug: user.publicSlug ?? null,
   };
@@ -90,7 +118,7 @@ function presentProfile(user: { _id: unknown; name: string; email?: string | nul
 
 router.get('/me', async (request, response) => {
   const actor = actorOf(request);
-  const user = await User.findOne({ _id: actor.userId, deletedAt: null }).select('name email phone photoUrl resumeUrl resumeFileName location skills expectedRate githubUrl linkedinUrl leetcodeUrl isPublic publicSlug').lean();
+  const user = await User.findOne({ _id: actor.userId, deletedAt: null }).select('name email phone photoUrl resumeUrl resumeFileName location skills expectedRate githubUrl linkedinUrl leetcodeUrl bio portfolioItems certifications isPublic publicSlug').lean();
   if (!user) throw new HttpError(404, 'Trainer profile not found.');
   response.json({ data: presentProfile(user) });
 });
@@ -119,11 +147,14 @@ router.put('/me', async (request, response) => {
         githubUrl: input.githubUrl,
         linkedinUrl: input.linkedinUrl,
         leetcodeUrl: input.leetcodeUrl,
+        bio: input.bio,
+        portfolioItems: input.portfolioItems,
+        certifications: input.certifications,
         isPublic: input.isPublic,
         publicSlug,
       } },
       { new: true, runValidators: true },
-    ).select('name email phone photoUrl resumeUrl resumeFileName location skills expectedRate githubUrl linkedinUrl leetcodeUrl isPublic publicSlug');
+    ).select('name email phone photoUrl resumeUrl resumeFileName location skills expectedRate githubUrl linkedinUrl leetcodeUrl bio portfolioItems certifications isPublic publicSlug');
     if (!user) throw new HttpError(404, 'Trainer profile not found.');
     response.json({ data: presentProfile(user.toObject()) });
   } catch (error) {
@@ -154,7 +185,7 @@ function uploadRoute(kind: TrainerAssetKind): RequestHandler[] {
       { _id: actor.userId, role: 'Trainer', deletedAt: null } as never,
       { $set: fields },
       { new: true },
-    ).select('name email phone photoUrl resumeUrl resumeFileName location skills expectedRate githubUrl linkedinUrl leetcodeUrl isPublic');
+    ).select('name email phone photoUrl resumeUrl resumeFileName location skills expectedRate githubUrl linkedinUrl leetcodeUrl bio portfolioItems certifications isPublic');
     if (!user) throw new HttpError(404, 'Trainer profile not found.');
     response.json({ data: presentProfile(user.toObject()) });
   }];

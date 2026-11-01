@@ -76,8 +76,26 @@ export interface TrainerProfileView {
   githubUrl: string | null;
   linkedinUrl: string | null;
   leetcodeUrl: string | null;
+  bio: string;
+  portfolioItems: TrainerPortfolioItem[];
+  certifications: TrainerCertification[];
   isPublic: boolean;
   publicSlug: string | null;
+}
+
+export interface TrainerPortfolioItem {
+  title: string;
+  description: string;
+  imageUrl: string | null;
+  videoUrl: string | null;
+  projectUrl: string | null;
+}
+
+export interface TrainerCertification {
+  name: string;
+  issuer: string;
+  issuedDate: string | null;
+  credentialUrl: string;
 }
 
 export interface TrainerProfileSuggestions {
@@ -101,6 +119,9 @@ export interface PublicTrainerProfileView {
   githubUrl: string | null;
   linkedinUrl: string | null;
   leetcodeUrl: string | null;
+  bio: string;
+  portfolioItems: TrainerPortfolioItem[];
+  certifications: TrainerCertification[];
 }
 
 export interface AuthSession {
