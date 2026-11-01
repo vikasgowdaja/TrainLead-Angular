@@ -46,6 +46,7 @@ export class RequirementDetailPage {
   protected readonly linkedinUrl = signal('');
   protected readonly leetcodeUrl = signal('');
   protected readonly applying = signal(false);
+  protected readonly uploadingResume = signal(false);
   protected readonly applicationBusy = signal<string | null>(null);
   protected readonly demoProvider = signal<'Google Meet' | 'Zoom' | 'Microsoft Teams'>('Google Meet');
   protected readonly demoMeetingUrl = signal('');
@@ -81,6 +82,30 @@ export class RequirementDetailPage {
 
   protected isTrainer(): boolean {
     return this.auth.hasRole('Trainer');
+  }
+
+  protected onResumeSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (file.type !== 'application/pdf' || !file.name.toLowerCase().endsWith('.pdf')) {
+      this.errorMessage.set('Choose a PDF resume.');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      this.errorMessage.set('Resume must be 3 MB or smaller.');
+      return;
+    }
+    this.uploadingResume.set(true);
+    this.errorMessage.set(null);
+    this.api.uploadTrainerResume(file).pipe(finalize(() => this.uploadingResume.set(false))).subscribe({
+      next: ({ data }) => {
+        this.resumeUrl.set(data.resumeUrl ?? '');
+        this.successMessage.set('Resume uploaded. Its link is ready for your application.');
+      },
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    });
   }
 
   protected apply(): void {
