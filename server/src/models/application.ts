@@ -9,6 +9,8 @@ const ApplicationSchema = new Schema(
     coverNote: { type: String, default: '' },
     expectedRate: { type: Number, default: null },
     skills: { type: [String], default: [] },
+    location: { type: String, default: '' },
+    contactPhone: { type: String, default: '' },
     resumeUrl: { type: String, default: '' },
     githubUrl: { type: String, default: '' },
     linkedinUrl: { type: String, default: '' },

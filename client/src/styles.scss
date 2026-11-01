@@ -132,6 +132,27 @@ body {
 .new-application { margin-left: 8px; color: #a45b20; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .trainer-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .trainer-links a { color: var(--brand); font-size: 13px; font-weight: 600; }
+.trainer-card-identity { display: flex; align-items: center; gap: 10px; }
+.trainer-card-photo, .trainer-card-photo-placeholder { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 50%; object-fit: cover; background: color-mix(in srgb, var(--brand) 12%, var(--panel)); color: var(--brand); }
+.trainer-profile-card { max-width: 860px; }
+.trainer-profile-media { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; margin: 20px 0; }
+.trainer-photo-column, .trainer-resume-column { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.trainer-photo-column { align-items: center; }
+.trainer-photo-preview, .trainer-photo-placeholder { display: grid; width: 88px; height: 88px; place-items: center; border-radius: 50%; object-fit: cover; background: color-mix(in srgb, var(--brand) 12%, var(--surface)); color: var(--brand); font-size: 34px; }
+.trainer-file-button { position: relative; overflow: hidden; }
+.trainer-file-button input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.trainer-photo-column small, .trainer-resume-column small { color: var(--muted); font-size: 10px; }
+.trainer-resume-column > .material-symbols-outlined { color: var(--brand); font-size: 25px; }
+.trainer-resume-column a { color: var(--brand); font-size: 12px; font-weight: 600; }
+.trainer-profile-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.trainer-contact-note { grid-column: 1 / -1; margin: -4px 0 0; }
+.trainer-contact-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.trainer-contact-grid > div { min-width: 0; }
+.trainer-contact-grid dt { color: var(--muted); font-size: 10px; }
+.trainer-contact-grid dd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 0; color: var(--ink); font-size: 12px; overflow-wrap: anywhere; }
+.trainer-contact-grid a { color: var(--brand); font-weight: 600; text-decoration: none; }
+.whatsapp-link { display: inline-flex; align-items: center; gap: 3px; }
+.whatsapp-link .material-symbols-outlined { font-size: 15px; }
 .trainer-skill-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .application-card.is-notification-target { padding: 14px; border: 1px solid var(--brand); border-radius: 4px; background: color-mix(in srgb, var(--brand) 6%, var(--panel)); }
 .demo-slot-editor, .trainer-profile-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
@@ -222,7 +243,7 @@ body {
 @media (max-width: 480px) { .admin-metrics { grid-template-columns: 1fr; } .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .sort-button select { border: 0; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
 .sort-button select:focus-visible { outline: 2px solid var(--brand); }
-@media (max-width: 700px) { .member-add, .skill-suggestion { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .member-add, .skill-suggestion { grid-template-columns: 1fr; } .trainer-contact-grid { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .capture-meta, .inbox-review, .skill-edit-grid, .interview-editor, .demo-slot-editor, .trainer-profile-links { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .dashboard-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } .search-field { grid-column: 1 / -1; } .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .detail-layout { grid-template-columns: 1fr; } .detail-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .detail-hero { grid-template-columns: 1fr; } .detail-toolbar { max-width: none; justify-content: flex-start; } }
-@media (max-width: 480px) { .organization-form, .requirement-form { grid-template-columns: 1fr; } .field-wide { grid-column: auto; } .support-fields, .dashboard-tools, .detail-grid, .detail-sidebar, .source-history .source-create { grid-template-columns: 1fr; } .search-field, .source-history .source-create .field:nth-child(3) { grid-column: auto; } .requirement-detail { width: calc(100% - 32px); } .detail-hero h1 { font-size: 28px; } .detail-card { padding: 14px; } .detail-hero-meta { gap: 8px 12px; } }
+@media (max-width: 480px) { .organization-form, .requirement-form, .trainer-profile-form { grid-template-columns: 1fr; } .field-wide, .trainer-contact-note { grid-column: auto; } .trainer-profile-media { grid-template-columns: 1fr; } .trainer-photo-column { align-items: flex-start; } .support-fields, .dashboard-tools, .detail-grid, .detail-sidebar, .source-history .source-create { grid-template-columns: 1fr; } .search-field, .source-history .source-create .field:nth-child(3) { grid-column: auto; } .requirement-detail { width: calc(100% - 32px); } .detail-hero h1 { font-size: 28px; } .detail-card { padding: 14px; } .detail-hero-meta { gap: 8px 12px; } }

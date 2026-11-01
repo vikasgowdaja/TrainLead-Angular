@@ -59,6 +59,16 @@ export interface AuthUser {
   phone: string | null;
   role: Role;
   organizationId?: string | null;
+  photoUrl?: string | null;
+}
+
+export interface TrainerProfileView {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  photoUrl: string | null;
+  resumeUrl: string | null;
 }
 
 export interface AuthSession {
@@ -183,7 +193,9 @@ export interface ApplicationView {
   trainer: {
     id: string;
     name: string;
+    photoUrl: string | null;
     skills: string[];
+    location: string;
     email: string | null;
     phone: string | null;
     profileLinks: { resume: string; github: string; linkedin: string; leetcode: string };

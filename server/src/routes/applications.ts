@@ -18,6 +18,7 @@ interface PopulatedUser {
   name: string;
   email?: string | null;
   phone?: string | null;
+  photoUrl?: string | null;
 }
 
 interface PopulatedRequirement {
@@ -37,6 +38,8 @@ interface ApplicationRecord {
   coverNote: string;
   expectedRate: number | null;
   skills: string[];
+  location: string;
+  contactPhone: string;
   resumeUrl: string;
   githubUrl: string;
   linkedinUrl: string;
@@ -64,7 +67,7 @@ function isPopulatedRequirement(value: ApplicationRecord['requirementId']): valu
 function presentApplication(application: ApplicationRecord, includeTrainerContact: boolean, canManage: boolean): ApplicationView {
   const trainer = isPopulatedUser(application.trainerId) ? application.trainerId : null;
   const requirement = isPopulatedRequirement(application.requirementId) ? application.requirementId : null;
-  const showContact = includeTrainerContact || application.status === 'Accepted';
+  const showContact = includeTrainerContact || canManage || application.status === 'Accepted';
   return {
     id: String(application._id),
     requirement: {
@@ -77,9 +80,11 @@ function presentApplication(application: ApplicationRecord, includeTrainerContac
     trainer: {
       id: String(trainer?._id ?? application.trainerId),
       name: trainer?.name ?? 'Trainer',
+      photoUrl: trainer?.photoUrl ?? null,
       skills: application.skills ?? [],
+      location: application.location ?? '',
       email: showContact ? trainer?.email ?? null : null,
-      phone: showContact ? trainer?.phone ?? null : null,
+      phone: showContact ? application.contactPhone || trainer?.phone || null : null,
       profileLinks: {
         resume: application.resumeUrl ?? '',
         github: application.githubUrl ?? '',
@@ -112,7 +117,7 @@ function duplicateKey(error: unknown): boolean {
 router.get('/mine', requireRole('Trainer'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const applications = await Application.find({ trainerId: actor.userId, deletedAt: null } as never)
-    .populate('trainerId', 'name email phone')
+    .populate('trainerId', 'name email phone photoUrl')
     .populate('requirementId', 'title city startDate endDate')
     .sort({ createdAt: -1 })
     .lean();
@@ -153,7 +158,7 @@ router.get('/requirements/:requirementId/mine', requireRole('Trainer'), loadActo
   const actor = actorOf(request);
   const requirementId = objectId(request.params['requirementId'], 'requirement id');
   const application = await Application.findOne({ requirementId, trainerId: actor.userId, deletedAt: null } as never)
-    .populate('trainerId', 'name email phone')
+    .populate('trainerId', 'name email phone photoUrl')
     .populate('requirementId', 'title city startDate endDate');
   response.json({ data: application ? presentApplication(application.toObject() as unknown as ApplicationRecord, true, false) : null });
 });
@@ -167,22 +172,46 @@ router.post('/requirements/:requirementId', requireRole('Trainer'), loadActor, a
     throw new HttpError(403, 'You cannot apply to your own organization’s requirement');
   }
   const input = parseBody(ApplyToRequirementSchema, request.body, 'application');
+  const applicationFields = {
+    organizationId: requirement.organizationId,
+    coverNote: input.coverNote,
+    expectedRate: input.expectedRate,
+    skills: input.skills,
+    location: input.location,
+    contactPhone: input.contactPhone,
+    resumeUrl: input.resumeUrl,
+    githubUrl: input.githubUrl,
+    linkedinUrl: input.linkedinUrl,
+    leetcodeUrl: input.leetcodeUrl,
+    status: 'Applied' as const,
+    interviewProvider: null,
+    meetingUrl: null,
+    interviewAt: null,
+    interviewNotes: '',
+    demoSlotAt: null,
+    decisionNote: null,
+  };
+  const rejectedApplication = await Application.findOneAndUpdate(
+    { requirementId, trainerId: actor.userId, status: 'Rejected', deletedAt: null } as never,
+    { $set: applicationFields },
+    { new: true, runValidators: true },
+  );
+  if (rejectedApplication) {
+    await rejectedApplication.populate([
+      { path: 'trainerId', select: 'name email phone photoUrl' },
+      { path: 'requirementId', select: 'title city startDate endDate' },
+    ]);
+    response.json({ data: presentApplication(rejectedApplication.toObject() as unknown as ApplicationRecord, true, false) });
+    return;
+  }
   try {
     const application = await Application.create({
       requirementId,
-      organizationId: requirement.organizationId,
       trainerId: actor.userId,
-      coverNote: input.coverNote,
-      expectedRate: input.expectedRate,
-      skills: input.skills,
-      resumeUrl: input.resumeUrl,
-      githubUrl: input.githubUrl,
-      linkedinUrl: input.linkedinUrl,
-      leetcodeUrl: input.leetcodeUrl,
-      status: 'Applied',
+      ...applicationFields,
     });
     await application.populate([
-      { path: 'trainerId', select: 'name email phone' },
+      { path: 'trainerId', select: 'name email phone photoUrl' },
       { path: 'requirementId', select: 'title city startDate endDate' },
     ]);
     response.status(201).json({ data: presentApplication(application.toObject() as unknown as ApplicationRecord, true, false) });
@@ -201,7 +230,7 @@ router.get('/requirements/:requirementId', requireRole('Admin', 'Vendor'), loadA
     throw new HttpError(403, 'Only the posting organization can review applications');
   }
   const applications = await Application.find({ requirementId, deletedAt: null } as never)
-    .populate('trainerId', 'name email phone')
+    .populate('trainerId', 'name email phone photoUrl')
     .populate('requirementId', 'title city startDate endDate')
     .sort({ createdAt: -1 })
     .lean();
@@ -234,7 +263,7 @@ router.patch('/:applicationId/interview', requireRole('Admin', 'Vendor'), loadAc
   });
   await application.save();
   await application.populate([
-    { path: 'trainerId', select: 'name email phone' },
+    { path: 'trainerId', select: 'name email phone photoUrl' },
     { path: 'requirementId', select: 'title city startDate endDate' },
   ]);
   response.json({ data: presentApplication(application.toObject() as unknown as ApplicationRecord, false, true) });
@@ -267,7 +296,7 @@ router.patch('/:applicationId/demo-slot', requireRole('Trainer'), loadActor, asy
     throw error;
   }
   await application.populate([
-    { path: 'trainerId', select: 'name email phone' },
+    { path: 'trainerId', select: 'name email phone photoUrl' },
     { path: 'requirementId', select: 'title city startDate endDate' },
   ]);
   response.json({ data: presentApplication(application.toObject() as unknown as ApplicationRecord, true, false) });
@@ -293,7 +322,7 @@ router.patch('/:applicationId/decision', requireRole('Admin', 'Vendor'), loadAct
   application.set({ status: input.status, decisionNote: input.decisionNote, ...(input.status === 'Rejected' ? { demoSlotAt: null } : {}) });
   await application.save();
   await application.populate([
-    { path: 'trainerId', select: 'name email phone' },
+    { path: 'trainerId', select: 'name email phone photoUrl' },
     { path: 'requirementId', select: 'title city startDate endDate' },
   ]);
   response.json({ data: presentApplication(application.toObject() as unknown as ApplicationRecord, false, true) });

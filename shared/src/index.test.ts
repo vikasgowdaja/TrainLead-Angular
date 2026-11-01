@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AddMemberSchema, ApplicationDecisionSchema, ApplyToRequirementSchema, CreateRequirementSchema, DemoSlotsUpdateSchema, InterviewScheduleSchema, RequirementInputSchema, RequirementQuerySchema, canTransition, skillKey } from './index.js';
+import { AddMemberSchema, ApplicationDecisionSchema, ApplyToRequirementSchema, CreateRequirementSchema, DemoSlotsUpdateSchema, InterviewScheduleSchema, RequirementInputSchema, RequirementQuerySchema, TrainerProfileUpdateSchema, canTransition, skillKey } from './index.js';
 
 const mysuru = {
   title: 'AngularJS foundations for engineering students',
@@ -50,9 +50,22 @@ describe('AddMemberSchema', () => {
   });
 });
 
+describe('TrainerProfileUpdateSchema', () => {
+  it('accepts a trainer profile with valid contact details', () => {
+    expect(TrainerProfileUpdateSchema.parse({ name: 'Ananya Rao', email: 'ANANYA@example.com', phone: '+919876543210' }))
+      .toMatchObject({ name: 'Ananya Rao', email: 'ananya@example.com', phone: '+919876543210' });
+  });
+
+  it('requires at least one account contact method', () => {
+    expect(TrainerProfileUpdateSchema.safeParse({ name: 'Ananya Rao', email: null, phone: null }).success).toBe(false);
+  });
+});
+
 describe('application workflow schemas', () => {
   const trainerLinks = {
     skills: ['AngularJS', 'JavaScript'],
+    location: 'Mysuru, Karnataka',
+    contactPhone: '+919876543210',
     resumeUrl: 'https://drive.google.com/file/d/resume',
     githubUrl: 'https://github.com/trainer',
     linkedinUrl: 'https://www.linkedin.com/in/trainer',
@@ -65,6 +78,8 @@ describe('application workflow schemas', () => {
     });
     expect(ApplyToRequirementSchema.safeParse({ coverNote: 'No links' }).success).toBe(false);
     expect(ApplyToRequirementSchema.safeParse({ ...trainerLinks, skills: [] }).success).toBe(false);
+    expect(ApplyToRequirementSchema.safeParse({ ...trainerLinks, location: '' }).success).toBe(false);
+    expect(ApplyToRequirementSchema.safeParse({ ...trainerLinks, contactPhone: 'not-a-phone' }).success).toBe(false);
     expect(ApplyToRequirementSchema.safeParse({ ...trainerLinks, githubUrl: 'https://example.com/trainer' }).success).toBe(false);
   });
 

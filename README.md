@@ -39,6 +39,8 @@ npm run dev
 
 Open the Angular app at <http://127.0.0.1:4200>. The API health check is <http://127.0.0.1:3000/api/health>. `LLM_MODE=mock` is the default; the first checkpoint does not need an API key.
 
+Trainer profile photo and PDF resume uploads use Cloudinary. Add `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` to the local `.env` file to enable uploads; keep those credentials on the server and never commit `.env`. Photos are limited to 1 MB and resized to 256 × 256; PDF resumes are limited to 3 MB.
+
 Useful checks:
 
 ```powershell

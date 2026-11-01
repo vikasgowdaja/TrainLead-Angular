@@ -79,6 +79,15 @@ export const LoginSchema = z.object({
   password: z.string().min(1, 'Enter your password.').max(72),
 });
 
+export const TrainerProfileUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  email: z.email().trim().toLowerCase().nullable().default(null),
+  phone: PhoneSchema.nullable().default(null),
+}).refine((profile) => profile.email || profile.phone, {
+  message: 'Provide an email address or phone number.',
+  path: ['email'],
+});
+
 export const OrganizationInputSchema = z.object({
   legalName: text(160).min(2),
   brandName: text(120).default(''),
@@ -189,6 +198,8 @@ export const ApplyToRequirementSchema = z.object({
   coverNote: text(2000).default(''),
   expectedRate: z.number().nonnegative().nullable().default(null),
   skills: z.array(text(60).min(1)).min(1, 'Add at least one relevant skill.').max(20),
+  location: text(120).min(2, 'Enter your city or location.'),
+  contactPhone: PhoneSchema,
   resumeUrl: ResumeUrlSchema,
   githubUrl: GitHubUrlSchema,
   linkedinUrl: LinkedInUrlSchema,

@@ -1,0 +1,38 @@
+<main class="app-shell auth-page trainer-profile-page">
+  <section class="auth-card wide-card trainer-profile-card" aria-labelledby="trainer-profile-title">
+    <a class="back-link" routerLink="/">&larr; Back to requirements</a>
+    <p class="eyebrow">TRAINER WORKSPACE <span>/</span> PROFILE</p>
+    <h1 id="trainer-profile-title">Your profile</h1>
+    <p class="auth-subtitle">Manage the details vendors see when you apply.</p>
+
+    @if (loading()) { <p class="auth-subtitle">Loading profile…</p> }
+    @if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p> }
+    @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
+
+    @if (profile(); as current) {
+      <section class="trainer-profile-media" aria-label="Profile photo and resume">
+        <div class="trainer-photo-column">
+          @if (current.photoUrl) { <img class="trainer-photo-preview" [src]="current.photoUrl" alt="Trainer profile photo" /> }
+          @else { <span class="trainer-photo-placeholder material-symbols-outlined" aria-hidden="true">person</span> }
+          <label class="secondary-button trainer-file-button">{{ uploadingPhoto() ? 'Uploading…' : 'Upload photo' }}<input type="file" accept="image/jpeg,image/png,image/webp" [disabled]="uploadingPhoto()" (change)="onPhotoSelected($event)" /></label>
+          <small>JPEG, PNG, WebP · max 1 MB</small>
+        </div>
+        <div class="trainer-resume-column">
+          <span class="material-symbols-outlined" aria-hidden="true">description</span>
+          <strong>{{ current.resumeUrl ? 'Resume saved' : 'No resume uploaded' }}</strong>
+          @if (current.resumeUrl) { <a [href]="current.resumeUrl" target="_blank" rel="noopener noreferrer">View current resume</a> }
+          <label class="secondary-button trainer-file-button">{{ uploadingResume() ? 'Uploading…' : current.resumeUrl ? 'Replace resume' : 'Upload resume' }}<input type="file" accept="application/pdf,.pdf" [disabled]="uploadingResume()" (change)="onResumeSelected($event)" /></label>
+          <small>PDF only · max 3 MB</small>
+        </div>
+      </section>
+
+      <form class="trainer-profile-form" (submit)="$event.preventDefault(); save()">
+        <label class="field"><span>Full name</span><input autocomplete="name" required minlength="2" [value]="name()" (input)="name.set($any($event.target).value)" /></label>
+        <label class="field"><span>Email</span><input type="email" autocomplete="email" [value]="email()" (input)="email.set($any($event.target).value)" /></label>
+        <label class="field"><span>Phone / WhatsApp</span><input type="tel" autocomplete="tel" placeholder="+919876543210" [value]="phone()" (input)="phone.set($any($event.target).value)" /></label>
+        <p class="panel-footnote trainer-contact-note">Keep at least one contact method on your account.</p>
+        <div class="form-actions field-wide"><button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save profile' }}</button></div>
+      </form>
+    }
+  </section>
+</main>

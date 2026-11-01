@@ -15,6 +15,7 @@ import { inboxRouter } from './routes/inbox.js';
 import { organizationsRouter } from './routes/organizations.js';
 import { requirementsRouter } from './routes/requirements.js';
 import { skillsRouter } from './routes/skills.js';
+import { trainerProfileRouter } from './routes/trainer-profile.js';
 
 const logger = pino({
   redact: {
@@ -77,6 +78,7 @@ app.use('/api/organizations', organizationsRouter);
 app.use('/api/requirements', requirementsRouter);
 app.use('/api/skills', skillsRouter);
 app.use('/api/inbox', inboxRouter);
+app.use('/api/trainer-profile', trainerProfileRouter);
 
 app.use((_request, response) => {
   response.status(404).json({ error: 'Route not found' });

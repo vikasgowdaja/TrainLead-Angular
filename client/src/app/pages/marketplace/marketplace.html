@@ -72,6 +72,7 @@
           <a class="text-link" routerLink="/admin/organizations">Organizations</a>
         }
         <a class="text-link" routerLink="/skills">Skills</a>
+        @if (user.role === 'Trainer') { <a class="text-link" routerLink="/trainer/profile">My profile</a> }
         <span class="profile-button" [attr.aria-label]="'Signed in as ' + user.name + ', ' + user.role">
           <span class="profile-avatar">{{ initials() }}</span>
           <span class="profile-name">{{ user.name }}</span>

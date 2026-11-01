@@ -37,6 +37,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/skills/skills').then((m) => m.SkillsPage),
   },
   {
+    path: 'trainer/profile',
+    canActivate: [roleGuard('Trainer')],
+    loadComponent: () => import('./pages/trainer-profile/trainer-profile').then((m) => m.TrainerProfilePage),
+  },
+  {
     path: 'organization/new',
     canActivate: [roleGuard('Vendor', 'Admin')],
     loadComponent: () => import('./pages/organization-form/organization-form').then((m) => m.OrganizationFormPage),

@@ -17,6 +17,7 @@ import type {
   SourceType,
   VerificationStatus,
   SkillView,
+  TrainerProfileView,
   SmartExtractionResult,
 } from '@trainlead/shared/domain';
 import { Observable } from 'rxjs';
@@ -43,6 +44,26 @@ export class MarketplaceService {
 
   getMyOrganization(): Observable<{ data: OrganizationView }> {
     return this.http.get<{ data: OrganizationView }>('/api/organizations/me');
+  }
+
+  getTrainerProfile(): Observable<{ data: TrainerProfileView }> {
+    return this.http.get<{ data: TrainerProfileView }>('/api/trainer-profile/me');
+  }
+
+  updateTrainerProfile(input: { name: string; email: string | null; phone: string | null }): Observable<{ data: TrainerProfileView }> {
+    return this.http.put<{ data: TrainerProfileView }>('/api/trainer-profile/me', input);
+  }
+
+  uploadTrainerPhoto(file: File): Observable<{ data: TrainerProfileView }> {
+    const body = new FormData();
+    body.append('photo', file);
+    return this.http.post<{ data: TrainerProfileView }>('/api/trainer-profile/me/photo', body);
+  }
+
+  uploadTrainerResume(file: File): Observable<{ data: TrainerProfileView }> {
+    const body = new FormData();
+    body.append('resume', file);
+    return this.http.post<{ data: TrainerProfileView }>('/api/trainer-profile/me/resume', body);
   }
 
   createOrganization(input: OrganizationInput): Observable<{ data: OrganizationView }> {

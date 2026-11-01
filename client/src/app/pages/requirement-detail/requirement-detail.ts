@@ -33,10 +33,14 @@ export class RequirementDetailPage {
   protected readonly successMessage = signal<string | null>(null);
   protected readonly myApplication = signal<ApplicationView | null>(null);
   protected readonly myApplicationLoaded = signal(false);
+  protected readonly reapplying = signal(false);
+  private readonly previousApplication = signal<ApplicationView | null>(null);
   protected readonly applications = signal<ApplicationView[]>([]);
   protected readonly coverNote = signal('');
   protected readonly expectedRate = signal('');
   protected readonly skillsInput = signal('');
+  protected readonly locationInput = signal('');
+  protected readonly contactPhoneInput = signal(this.auth.currentUser()?.phone ?? '');
   protected readonly resumeUrl = signal('');
   protected readonly githubUrl = signal('');
   protected readonly linkedinUrl = signal('');
@@ -66,7 +70,10 @@ export class RequirementDetailPage {
         }
         if (!this.selectedDemoSlot()) this.selectedDemoSlot.set(data.demoSlots.find((slot) => slot.available)?.scheduledAt ?? '');
         if (data.canManage) this.loadApplications();
-        else if (this.auth.hasRole('Trainer')) this.loadMyApplication();
+        else if (this.auth.hasRole('Trainer')) {
+          this.loadTrainerProfile();
+          this.loadMyApplication();
+        }
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });
@@ -93,20 +100,57 @@ export class RequirementDetailPage {
       this.errorMessage.set('Add at least one relevant skill before applying.');
       return;
     }
+    const location = this.locationInput().trim();
+    if (location.length < 2) {
+      this.errorMessage.set('Add your city or current location before applying.');
+      return;
+    }
+    const contactPhone = this.contactPhoneInput().trim();
+    if (!/^\+?[0-9]{10,15}$/.test(contactPhone)) {
+      this.errorMessage.set('Enter a mobile or WhatsApp number with 10-15 digits.');
+      return;
+    }
     this.applicationBusy.set(null);
     this.applying.set(true);
     this.api.applyToRequirement(this.id, {
       coverNote: this.coverNote().trim(), expectedRate,
       skills,
+      location,
+      contactPhone,
       resumeUrl: this.resumeUrl().trim(), githubUrl: this.githubUrl().trim(),
       linkedinUrl: this.linkedinUrl().trim(), leetcodeUrl: this.leetcodeUrl().trim(),
     }).pipe(finalize(() => this.applying.set(false))).subscribe({
       next: ({ data }) => {
+        const wasReapplying = this.reapplying();
         this.myApplication.set(data);
-        this.successMessage.set('Application sent to the Vendor.');
+        this.previousApplication.set(null);
+        this.reapplying.set(false);
+        this.successMessage.set(wasReapplying ? 'Your updated application was sent to the Vendor.' : 'Application sent to the Vendor.');
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });
+  }
+
+  protected startReapplication(application: ApplicationView): void {
+    this.previousApplication.set(application);
+    this.coverNote.set(application.coverNote);
+    this.expectedRate.set(application.expectedRate?.toString() ?? '');
+    this.skillsInput.set(application.trainer.skills.join(', '));
+    this.locationInput.set(application.trainer.location);
+    this.contactPhoneInput.set(application.trainer.phone ?? this.auth.currentUser()?.phone ?? '');
+    this.resumeUrl.set(application.trainer.profileLinks.resume);
+    this.githubUrl.set(application.trainer.profileLinks.github);
+    this.linkedinUrl.set(application.trainer.profileLinks.linkedin);
+    this.leetcodeUrl.set(application.trainer.profileLinks.leetcode);
+    this.reapplying.set(true);
+    this.myApplication.set(null);
+  }
+
+  protected cancelReapplication(): void {
+    const previous = this.previousApplication();
+    if (previous) this.myApplication.set(previous);
+    this.previousApplication.set(null);
+    this.reapplying.set(false);
   }
 
   protected addDemoSlot(): void {
@@ -174,6 +218,16 @@ export class RequirementDetailPage {
     });
   }
 
+  private loadTrainerProfile(): void {
+    this.api.getTrainerProfile().subscribe({
+      next: ({ data }) => {
+        if (!this.resumeUrl()) this.resumeUrl.set(data.resumeUrl ?? '');
+        if (!this.contactPhoneInput()) this.contactPhoneInput.set(data.phone ?? '');
+      },
+      error: () => undefined,
+    });
+  }
+
   private loadApplications(): void {
     this.api.listRequirementApplications(this.id).subscribe({
       next: ({ data }) => {
@@ -201,6 +255,15 @@ export class RequirementDetailPage {
 
   protected edit(): void {
     void this.router.navigate(['/requirements', this.id, 'edit']);
+  }
+
+  protected whatsappUrl(phone: string | null): string | null {
+    if (!phone) return null;
+    const digits = phone.replace(/\D/g, '');
+    const internationalNumber = digits.length === 10 ? `91${digits}` : digits;
+    return internationalNumber.length >= 11 && internationalNumber.length <= 15
+      ? `https://wa.me/${internationalNumber}`
+      : null;
   }
 
   protected duplicate(): void {
