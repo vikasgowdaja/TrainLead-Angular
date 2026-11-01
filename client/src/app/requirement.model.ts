@@ -1,3 +1,5 @@
+import type { RequirementStatus } from '@trainlead/shared/domain';
+
 export type SupportStatus = 'Provided' | 'Reimbursed' | 'Not provided' | 'Unknown';
 
 export interface SupportItem {
@@ -8,7 +10,7 @@ export interface SupportItem {
 export interface Requirement {
   id: string;
   title: string;
-  status: string;
+  status: RequirementStatus;
   canManage: boolean;
   canApply: boolean;
   groupId: string | null;

@@ -41,9 +41,18 @@ describe('smart requirement extraction', () => {
     expect(result.confidence['mode']).toBe('low');
     expect(result.extracted.studentCount).toBeUndefined();
     expect(result.sourceDetails).toEqual({ organizationName: 'MTD', contactPerson: 'Nithin', phone: '9480273090', email: null });
+    expect(result.extracted.description).toBeUndefined();
     expect(result.estimatedTotalBudget).toBe(24000);
     expect(result.missingFields).not.toContain('mode');
     expect(result.warnings).toContain('Delivery mode was not stated; Offline was selected by default. Confirm it before publishing.');
+  });
+
+  it('keeps freeform notes as the description without copying structured source fields', () => {
+    const note = 'Hands-on in-person labs are preferred.';
+    const result = extractRequirement(`${mtdMessage}\n\n${note}`, 'text', new Date('2026-11-01T00:00:00Z'));
+
+    expect(result.extracted.description).toBe(note);
+    expect(result.extractedText).toContain(mtdMessage);
   });
 
   it('maps daily budget columns from tab-separated tables', () => {

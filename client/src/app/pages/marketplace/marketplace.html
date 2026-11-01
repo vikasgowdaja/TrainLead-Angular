@@ -181,7 +181,7 @@
               <div class="empty-state"><span class="material-symbols-outlined" aria-hidden="true">search_off</span><h3>No requirements found</h3><p>Try changing a filter, or create a requirement for your organization.</p></div>
             }
             @for (requirement of requirements(); track requirement.id) {
-              <app-requirement-card [requirement]="requirement" />
+              <app-requirement-card [requirement]="requirement" (requirementChanged)="reload()" />
             }
           </div>
           @if (hasMore()) {

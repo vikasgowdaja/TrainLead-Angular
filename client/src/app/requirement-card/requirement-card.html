@@ -10,10 +10,22 @@
           <a class="card-edit-button" [routerLink]="['/requirements', requirement().id, 'edit']" [attr.aria-label]="'Edit ' + requirement().title" title="Edit requirement">
             <span class="material-symbols-outlined" aria-hidden="true">edit</span>
           </a>
+          <details #cardActions class="detail-action-menu card-status-menu">
+            <summary class="opportunity-label card-status-menu-trigger" [class.is-open]="requirement().status === 'Open'" [class.is-closed]="requirement().status === 'Closed'" [attr.aria-label]="'Status and actions for ' + requirement().title">{{ requirement().status }}<span class="material-symbols-outlined" aria-hidden="true">expand_more</span></summary>
+            <div class="detail-action-menu-items" aria-label="Requirement actions">
+              <button type="button" [disabled]="saving()" (click)="duplicate(); cardActions.open = false">Duplicate</button>
+              @if (availableStatuses().length) { <hr /> }
+              @for (status of availableStatuses(); track status) { <button type="button" [disabled]="saving()" (click)="changeStatus(status); cardActions.open = false">{{ status }}</button> }
+              <hr />
+              <button class="detail-action-danger" type="button" [disabled]="saving()" (click)="remove(); cardActions.open = false">Delete</button>
+            </div>
+          </details>
+        } @else {
+          <span class="opportunity-label" [class.is-open]="requirement().status === 'Open'" [class.is-closed]="requirement().status === 'Closed'">{{ requirement().status }}</span>
         }
-        <span class="opportunity-label" [class.is-open]="requirement().status === 'Open'" [class.is-closed]="requirement().status === 'Closed'">{{ requirement().status }}</span>
       </div>
     </div>
+    @if (actionError(); as message) { <p class="card-action-error" role="alert">{{ message }}</p> }
 
     <div class="card-tags">
       @for (skill of requirement().stack; track skill) {

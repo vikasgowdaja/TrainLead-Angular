@@ -132,6 +132,22 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); }
 .detail-hero-meta > span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
 .detail-hero-meta .material-symbols-outlined { color: var(--brand); font-size: 17px; }
 .detail-toolbar { max-width: 320px; justify-content: flex-end; margin: 0; }
+.detail-action-menu { position: relative; }
+.detail-action-menu > summary { list-style: none; }
+.detail-action-menu > summary::-webkit-details-marker { display: none; }
+.detail-action-menu > summary .action-menu-chevron { margin-left: auto; font-size: 18px; }
+.detail-action-menu[open] > summary .action-menu-chevron { transform: rotate(180deg); }
+.detail-action-menu-items { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; display: grid; width: 220px; max-width: calc(100vw - 32px); padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); box-shadow: 0 8px 24px rgb(20 30 25 / 14%); }
+.detail-action-menu-items button { display: flex; min-height: 40px; align-items: center; padding: 8px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.detail-action-menu-items button:hover:not(:disabled), .detail-action-menu-items button:focus-visible { background: color-mix(in srgb, var(--brand) 8%, var(--panel)); }
+.detail-action-menu-items button:disabled { opacity: .55; cursor: not-allowed; }
+.detail-action-menu-items hr { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid var(--line); }
+.detail-action-menu-items .detail-action-danger { color: #bd4d3d; }
+.card-status-menu-trigger { gap: 3px; cursor: pointer; }
+.card-status-menu-trigger.is-closed { transform: none; }
+.card-status-menu-trigger .material-symbols-outlined { font-size: 15px; }
+.card-status-menu[open] .card-status-menu-trigger .material-symbols-outlined { transform: rotate(180deg); }
+.card-action-error { margin: 8px 0 0; color: #bd4d3d; font-size: 12px; }
 .detail-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(250px, .75fr); align-items: start; gap: var(--space-3, 16px); margin-top: 20px; }
 .detail-main-column, .detail-sidebar { display: grid; min-width: 0; align-content: start; gap: 16px; }
 .detail-card { min-width: 0; padding: var(--space-3, 16px); border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }

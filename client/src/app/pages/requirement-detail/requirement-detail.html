@@ -9,16 +9,23 @@
         <div class="detail-hero-copy">
           <p class="eyebrow">{{ item.organization.name }} <span>/</span> {{ item.status }}</p>
           <h1 id="requirement-title">{{ item.title }}</h1>
-          <p class="detail-description">{{ item.description || 'No description provided.' }}</p>
+          @if (requirementDescription(item); as description) { <p class="detail-description">{{ description }}</p> }
           <div class="detail-hero-meta"><span><span class="material-symbols-outlined" aria-hidden="true">location_on</span>{{ item.city }}{{ item.state ? ', ' + item.state : '' }}</span><span><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>{{ formatDate(item.startDate) }} – {{ formatDate(item.endDate) }}</span><span><span class="material-symbols-outlined" aria-hidden="true">schedule</span>{{ item.durationDays }} days</span></div>
         </div>
         @if (item.canManage) {
           <div class="detail-toolbar" aria-label="Requirement actions">
-            <button class="secondary-button" type="button" (click)="edit()">Edit</button>
-            <button class="secondary-button" type="button" (click)="duplicate()">Duplicate</button>
-            @if (item.groupId) { <button class="secondary-button" type="button" (click)="ungroup()">Ungroup</button> }
-            @for (status of item.allowedStatuses; track status) { <button class="secondary-button" type="button" [disabled]="saving()" (click)="changeStatus(status)">{{ status }}</button> }
-            <button class="danger-button" type="button" [disabled]="saving()" (click)="remove()">Delete</button>
+            <details #actionsMenu class="detail-action-menu">
+              <summary class="secondary-button"><span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>Actions<span class="material-symbols-outlined action-menu-chevron" aria-hidden="true">expand_more</span></summary>
+              <div class="detail-action-menu-items" aria-label="Requirement actions">
+                <button type="button" (click)="edit(); actionsMenu.open = false">Edit</button>
+                <button type="button" (click)="duplicate(); actionsMenu.open = false">Duplicate</button>
+                @if (item.groupId) { <button type="button" (click)="ungroup(); actionsMenu.open = false">Ungroup</button> }
+                @if (item.allowedStatuses.length) { <hr /> }
+                @for (status of item.allowedStatuses; track status) { <button type="button" [disabled]="saving()" (click)="changeStatus(status); actionsMenu.open = false">{{ status }}</button> }
+                <hr />
+                <button class="detail-action-danger" type="button" [disabled]="saving()" (click)="remove(); actionsMenu.open = false">Delete</button>
+              </div>
+            </details>
           </div>
         }
       </header>
@@ -43,8 +50,11 @@
               <div class="demo-slot-editor">
                 <label class="field"><span>Meeting platform</span><select [value]="demoProvider()" (change)="demoProvider.set($any($event.target).value)"><option>Google Meet</option><option>Zoom</option><option>Microsoft Teams</option></select></label>
                 <label class="field"><span>Meeting link</span><input type="url" [value]="demoMeetingUrl()" (input)="demoMeetingUrl.set($any($event.target).value)" placeholder="https://meet.google.com/..." /></label>
-                <label class="field"><span>Available date and time</span><input type="datetime-local" [value]="demoSlotDateTime()" (input)="demoSlotDateTime.set($any($event.target).value)" /></label>
-                <button class="secondary-button" type="button" [disabled]="savingDemoSlots()" (click)="addDemoSlot()">Add slot</button>
+                <label class="field"><span>Available date</span><input type="date" [value]="demoSlotDate()" (input)="demoSlotDate.set($any($event.target).value)" /></label>
+                <label class="field"><span>Start time</span><input type="time" [value]="demoSlotStartTime()" (input)="demoSlotStartTime.set($any($event.target).value)" /></label>
+                <label class="field"><span>End time</span><input type="time" [value]="demoSlotEndTime()" (input)="demoSlotEndTime.set($any($event.target).value)" /></label>
+                <label class="field"><span>Slot interval</span><select [value]="demoSlotInterval()" (change)="demoSlotInterval.set(+$any($event.target).value)"><option [value]="15">Every 15 minutes</option><option [value]="30">Every 30 minutes</option><option [value]="60">Every hour</option></select></label>
+                <button class="secondary-button" type="button" [disabled]="savingDemoSlots()" (click)="addDemoSlots()">Add time slots</button>
               </div>
               <div class="demo-slot-list">
                 @for (slot of item.demoSlots; track slot.scheduledAt) {

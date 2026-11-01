@@ -55,7 +55,10 @@ export class RequirementDetailPage {
   protected readonly applicationBusy = signal<string | null>(null);
   protected readonly demoProvider = signal<'Google Meet' | 'Zoom' | 'Microsoft Teams'>('Google Meet');
   protected readonly demoMeetingUrl = signal('');
-  protected readonly demoSlotDateTime = signal('');
+  protected readonly demoSlotDate = signal('');
+  protected readonly demoSlotStartTime = signal('16:00');
+  protected readonly demoSlotEndTime = signal('18:30');
+  protected readonly demoSlotInterval = signal(30);
   protected readonly selectedDemoSlot = signal('');
   protected readonly savingDemoSlots = signal(false);
 
@@ -187,15 +190,44 @@ export class RequirementDetailPage {
     this.reapplying.set(false);
   }
 
-  protected addDemoSlot(): void {
+  protected addDemoSlots(): void {
     const item = this.requirement();
-    const date = this.demoSlotDateTime() ? new Date(this.demoSlotDateTime()) : null;
-    if (!item || !date || !Number.isFinite(date.getTime()) || date <= new Date() || !this.demoMeetingUrl().trim()) {
-      this.errorMessage.set('Choose a future time and a valid meeting link before adding a demo slot.');
+    const date = this.demoSlotDate();
+    const startTime = this.demoSlotStartTime();
+    const endTime = this.demoSlotEndTime();
+    const interval = this.demoSlotInterval();
+    const startAt = new Date(`${date}T${startTime}`).getTime();
+    const endAt = new Date(`${date}T${endTime}`).getTime();
+    if (!item || !date || !Number.isFinite(startAt) || !Number.isFinite(endAt) || startAt > endAt || !this.demoMeetingUrl().trim()) {
+      this.errorMessage.set('Choose a valid date and time range, and enter a meeting link.');
       return;
     }
+
+    const availableTimes: number[] = [];
+    for (let time = startAt; time <= endAt; time += interval * 60_000) {
+      if (time > Date.now()) availableTimes.push(time);
+    }
+    if (!availableTimes.length) {
+      this.errorMessage.set('Choose a time range that includes a future slot.');
+      return;
+    }
+
     const slots: DemoSlotInput[] = item.demoSlots.map(({ provider, meetingUrl, scheduledAt }) => ({ provider, meetingUrl: meetingUrl ?? '', scheduledAt }));
-    slots.push({ provider: this.demoProvider(), meetingUrl: this.demoMeetingUrl().trim(), scheduledAt: date.toISOString() });
+    const existingTimes = new Set(item.demoSlots.map(({ scheduledAt }) => new Date(scheduledAt).getTime()));
+    const newTimes = availableTimes.filter((time) => !existingTimes.has(time));
+    if (!newTimes.length) {
+      this.errorMessage.set('Those demo times are already published.');
+      return;
+    }
+    if (slots.length + newTimes.length > 20) {
+      this.errorMessage.set('A requirement can have up to 20 demo slots. Remove a slot or shorten the time range.');
+      return;
+    }
+    slots.push(...newTimes.map((time) => ({
+      provider: this.demoProvider(),
+      meetingUrl: this.demoMeetingUrl().trim(),
+      scheduledAt: new Date(time).toISOString(),
+    })));
     this.saveDemoSlots(slots);
   }
 
@@ -226,7 +258,7 @@ export class RequirementDetailPage {
     this.api.updateRequirementDemoSlots(this.id, { slots }).pipe(finalize(() => this.savingDemoSlots.set(false))).subscribe({
       next: ({ data }) => {
         this.requirement.set(data);
-        this.demoSlotDateTime.set('');
+        this.demoSlotDate.set('');
         this.successMessage.set('Demo slots updated.');
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
@@ -372,5 +404,24 @@ export class RequirementDetailPage {
 
   protected formatDate(value: string | null): string {
     return value ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${value.slice(0, 10)}T00:00:00Z`)) : 'Not specified';
+  }
+
+  protected requirementDescription(item: RequirementDetail): string | null {
+    const description = item.description.trim();
+    if (!description) return 'No description provided.';
+
+    const importedText = item.sources.find((source) => source.sourceType === 'Import' && source.rawText)?.rawText;
+    if (importedText) {
+      const sourceDescription = importedText.split(/\r?\n/).filter((line) =>
+        !/^\s*(?:contact|contact person|phone|mobile|email|organization|organisation|company)\s*[:=]/i.test(line)
+        && !/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(line)
+        && !/(?:\+?\d[\d\s-]{8,14}\d)/.test(line),
+      ).join('\n');
+      const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim().toLocaleLowerCase('en');
+      const normalizedDescription = normalizeText(description);
+      if (normalizedDescription.length > 100 && normalizeText(sourceDescription).includes(normalizedDescription)) return null;
+    }
+
+    return description;
   }
 }

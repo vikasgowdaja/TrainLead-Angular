@@ -263,11 +263,25 @@ export function extractRequirement(input: string, inputType: 'text' | 'table' = 
   if (title) set('title', title, rawTitle ? 'high' : 'medium');
   if (!rawTitle && title) warnings.push('Title was generated from the subject and audience; review it.');
 
-  const publicLines = original.split(/\r?\n/).filter((line) =>
-    !/^\s*(?:contact|contact person|phone|mobile|email|organization|organisation|company)\s*[:=]/i.test(line)
-    && !/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(line)
-    && !/(?:\+?\d[\d\s-]{8,14}\d)/.test(line),
-  );
+  let skipNextValue = false;
+  const detailLabel = /^\s*(?:title|requirement title|training title|description|details|domain|skills|required skills|technology stack|technologies|subject|topic|city|location|venue|state|delivery mode|mode|delivery|start date|start|from|end date|end|to|duration(?: in days)?|days|target audience|audience|participants|participant group|number of students|student count|batch size|experience(?: requirements| required)?|commercial|daily budget|daily rate|rate per day|budget minimum|budget maximum|payment terms|commercial terms|payment(?: due)? date|payment|tfa|travel|food|stay|accommodation|organization|organisation|company|vendor|contact(?: person)?|phone|mobile|contact number|email|contact email)\s*[:=]/i;
+  const publicLines = original.split(/\r?\n/).filter((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    if (detailLabel.test(line)) {
+      skipNextValue = /^\s*[^:=]+[:=]\s*$/.test(line);
+      return false;
+    }
+    if (skipNextValue) {
+      skipNextValue = false;
+      return false;
+    }
+    return !/^\s*(?:namaste|hello|hi)\s+from\b/i.test(line)
+      && !/^\s*tfa\s+(?:is\s+)?provided\b/i.test(line)
+      && !/^\s*contact(?:\s|$)/i.test(line)
+      && !/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(line)
+      && !/(?:\+?\d[\d\s-]{8,14}\d)/.test(line);
+  });
   if (!extracted['description'] && publicLines.length) {
     const description = publicLines.join('\n').trim().slice(0, 4000);
     if (description) set('description', description, 'medium');
