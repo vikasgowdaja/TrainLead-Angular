@@ -48,6 +48,48 @@ export const CreateOpportunitySchema = z.object({
   }),
 });
 
+export const RoleSchema = z.enum(['Admin', 'Vendor', 'Trainer', 'Viewer']);
+
+// Admin is deliberately missing: admins are created by the seed script, never by sign-up.
+export const SelfServiceRoleSchema = RoleSchema.exclude(['Admin']);
+
+const PhoneSchema = z.string().trim().regex(/^\+?[0-9]{10,15}$/, 'Enter 10-15 digits, optionally starting with +.');
+
+export const RegisterSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80),
+    email: z.email().trim().toLowerCase().optional(),
+    phone: PhoneSchema.optional(),
+    password: z.string().min(8, 'Password must be at least 8 characters.').max(72),
+    role: SelfServiceRoleSchema,
+  })
+  .refine((user) => user.email || user.phone, {
+    message: 'Provide an email or a phone number.',
+    path: ['email'],
+  });
+
+export const LoginSchema = z.object({
+  identifier: z.string().trim().min(1, 'Enter your email or phone.'),
+  password: z.string().min(1, 'Enter your password.').max(72),
+});
+
+export type Role = z.infer<typeof RoleSchema>;
+export type RegisterInput = z.infer<typeof RegisterSchema>;
+export type LoginInput = z.infer<typeof LoginSchema>;
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: Role;
+}
+
+export interface AuthSession {
+  user: AuthUser;
+  accessToken: string;
+}
+
 export type RequirementDraft = z.infer<typeof RequirementDraftSchema>;
 export type CreateOpportunity = z.infer<typeof CreateOpportunitySchema>;
 export type SupportStatus = z.infer<typeof SupportStatusSchema>;

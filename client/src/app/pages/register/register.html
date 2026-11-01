@@ -1,0 +1,65 @@
+<main class="app-shell auth-page">
+  <section class="auth-card" aria-labelledby="register-title">
+    <span class="brand"><span class="brand-mark" aria-hidden="true"><span></span></span><span>trainlead</span></span>
+    <h1 id="register-title">Create your account</h1>
+    <p class="auth-subtitle">Sign up with an email, a phone number, or both.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label class="field">
+        <span>Full name</span>
+        <input formControlName="name" autocomplete="name" [attr.aria-invalid]="showError('name')" />
+        @if (showError('name')) {
+          <small class="field-error">Enter your name (2-80 characters).</small>
+        }
+      </label>
+
+      <label class="field">
+        <span>Email</span>
+        <input type="email" formControlName="email" autocomplete="email" [attr.aria-invalid]="showError('email')" />
+        @if (showError('email')) {
+          <small class="field-error">Enter a valid email address.</small>
+        }
+      </label>
+
+      <label class="field">
+        <span>Phone</span>
+        <input type="tel" formControlName="phone" autocomplete="tel" placeholder="+919876543210" [attr.aria-invalid]="showError('phone')" />
+        @if (showError('phone')) {
+          <small class="field-error">Use 10-15 digits, optionally starting with +.</small>
+        }
+      </label>
+
+      @if (showContactError()) {
+        <small class="field-error">Provide an email or a phone number.</small>
+      }
+
+      <label class="field">
+        <span>Password</span>
+        <input type="password" formControlName="password" autocomplete="new-password" [attr.aria-invalid]="showError('password')" />
+        @if (showError('password')) {
+          <small class="field-error">Use at least 8 characters.</small>
+        }
+      </label>
+
+      <fieldset class="role-picker">
+        <legend>I am joining as</legend>
+        @for (role of roles; track role.value) {
+          <label class="role-option">
+            <input type="radio" formControlName="role" [value]="role.value" />
+            <span><strong>{{ role.label }}</strong><small>{{ role.hint }}</small></span>
+          </label>
+        }
+      </fieldset>
+
+      @if (errorMessage(); as message) {
+        <p class="form-error" role="alert">{{ message }}</p>
+      }
+
+      <button class="primary-button" type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Creating account…' : 'Create account' }}
+      </button>
+    </form>
+
+    <p class="auth-switch">Already registered? <a routerLink="/login">Sign in</a></p>
+  </section>
+</main>

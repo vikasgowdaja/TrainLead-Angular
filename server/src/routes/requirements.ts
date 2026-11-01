@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { CreateOpportunitySchema, RequirementDraftSchema } from '@trainlead/shared';
 import { Types } from 'mongoose';
+import { requireAuth, requireRole } from '../auth/middleware.js';
 import { Opportunity } from '../models/opportunity.js';
 import { Posting } from '../models/posting.js';
 import { createOpportunityKey } from '../requirements/dedupe.js';
 
 const router = Router();
+router.use(requireAuth);
+
 const publicFields = 'technologyStack startDate endDate durationDays college city mode audience travel food stay tfa summary createdAt';
 
 function presentOpportunity(opportunity: Record<string, unknown>, postingCount: number, sources: string[], groups: string[]) {
@@ -94,7 +97,7 @@ router.get('/:id', async (request, response) => {
   });
 });
 
-router.post('/', async (request, response) => {
+router.post('/', requireRole('Admin', 'Vendor'), async (request, response) => {
   const parsed = CreateOpportunitySchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: 'Invalid opportunity', issues: parsed.error.issues });
@@ -128,6 +131,7 @@ router.post('/', async (request, response) => {
 
   await Posting.create({
     opportunityId: opportunity['_id'],
+    createdBy: request.user?.userId,
     sourceName: posting.sourceName,
     groupName: posting.groupName,
     vendorName: requirement.vendorName,
@@ -143,7 +147,8 @@ router.post('/', async (request, response) => {
   response.status(201).json({ data: presentOpportunity(opportunity as Record<string, unknown>, 1, [posting.sourceName], [posting.groupName]) });
 });
 
-router.put('/:id', async (request, response) => {
+// Opportunities are shared by many vendors, so only an Admin may edit or remove them.
+router.put<{ id: string }>('/:id', requireRole('Admin'), async (request, response) => {
   if (!Types.ObjectId.isValid(request.params['id'])) {
     response.status(400).json({ error: 'Invalid opportunity id' });
     return;
@@ -194,7 +199,7 @@ router.put('/:id', async (request, response) => {
   });
 });
 
-router.delete('/:id', async (request, response) => {
+router.delete<{ id: string }>('/:id', requireRole('Admin'), async (request, response) => {
   if (!Types.ObjectId.isValid(request.params['id'])) {
     response.status(400).json({ error: 'Invalid opportunity id' });
     return;

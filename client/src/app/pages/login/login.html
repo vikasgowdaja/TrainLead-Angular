@@ -1,0 +1,35 @@
+<main class="app-shell auth-page">
+  <section class="auth-card" aria-labelledby="login-title">
+    <span class="brand"><span class="brand-mark" aria-hidden="true"><span></span></span><span>trainlead</span></span>
+    <h1 id="login-title">Sign in</h1>
+    <p class="auth-subtitle">Use the email or phone number you registered with.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label class="field">
+        <span>Email or phone</span>
+        <input formControlName="identifier" autocomplete="username" [attr.aria-invalid]="showError('identifier')" />
+        @if (showError('identifier')) {
+          <small class="field-error">Enter your email or phone.</small>
+        }
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input type="password" formControlName="password" autocomplete="current-password" [attr.aria-invalid]="showError('password')" />
+        @if (showError('password')) {
+          <small class="field-error">Enter your password.</small>
+        }
+      </label>
+
+      @if (errorMessage(); as message) {
+        <p class="form-error" role="alert">{{ message }}</p>
+      }
+
+      <button class="primary-button" type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Signing in…' : 'Sign in' }}
+      </button>
+    </form>
+
+    <p class="auth-switch">New to TrainLead? <a routerLink="/register">Create an account</a></p>
+  </section>
+</main>

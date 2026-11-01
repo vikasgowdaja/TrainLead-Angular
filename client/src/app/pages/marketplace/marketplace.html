@@ -37,11 +37,19 @@
       >
         <span class="material-symbols-outlined" aria-hidden="true">{{ darkMode() ? 'light_mode' : 'dark_mode' }}</span>
       </button>
-      <button class="profile-button" type="button" aria-label="Account: Ananya Rao">
-        <span class="profile-avatar">AR</span>
-        <span class="profile-name">Ananya Rao</span>
-        <span class="material-symbols-outlined profile-chevron" aria-hidden="true">expand_more</span>
-      </button>
+      @if (auth.currentUser(); as user) {
+        @if (user.role === 'Admin') {
+          <a class="text-link" routerLink="/admin/users">Users</a>
+        }
+        <span class="profile-button" [attr.aria-label]="'Signed in as ' + user.name + ', ' + user.role">
+          <span class="profile-avatar">{{ initials() }}</span>
+          <span class="profile-name">{{ user.name }}</span>
+          <span class="role-pill">{{ user.role }}</span>
+        </span>
+        <button class="icon-button" type="button" aria-label="Sign out" title="Sign out" (click)="logout()">
+          <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+        </button>
+      }
     </div>
   </header>
 

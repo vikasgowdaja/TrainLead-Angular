@@ -1,23 +1,9 @@
-import { Component, signal } from '@angular/core';
-import { RequirementCard } from './requirement-card/requirement-card';
-import { demoRequirements, inboxPosts } from './requirement.data';
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 
 @Component({
-  imports: [RequirementCard],
+  imports: [RouterOutlet],
   selector: 'app-root',
-  templateUrl: './trainlead-shell.html',
+  template: '<router-outlet />',
 })
-export class App {
-  protected readonly activeView = signal<'requirements' | 'inbox'>('requirements');
-  protected readonly darkMode = signal(false);
-  protected readonly requirements = demoRequirements;
-  protected readonly posts = inboxPosts;
-
-  protected setView(view: 'requirements' | 'inbox'): void {
-    this.activeView.set(view);
-  }
-
-  protected toggleTheme(): void {
-    this.darkMode.update((isDark) => !isDark);
-  }
-}
+export class App {}

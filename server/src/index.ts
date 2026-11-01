@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
@@ -6,11 +7,13 @@ import helmet from 'helmet';
 import pino from 'pino';
 import { pinoHttp } from 'pino-http';
 import { connectDatabase } from './database.js';
+import { adminRouter } from './routes/admin.js';
+import { authRouter } from './routes/auth.js';
 import { requirementsRouter } from './routes/requirements.js';
 
 const logger = pino({
   redact: {
-    paths: ['req.headers.authorization', 'req.headers.cookie', 'req.body.phone'],
+    paths: ['req.headers.authorization', 'req.headers.cookie', 'req.body.phone', 'req.body.password'],
     remove: true,
   },
 });
@@ -45,12 +48,24 @@ app.use(
   }),
 );
 app.use(express.json({ limit: '1mb' }));
-app.use(pinoHttp({ logger, serializers: { req: (request) => ({ method: request.method, url: request.url }) } }));
+app.use(cookieParser());
+app.use(
+  pinoHttp({
+    logger,
+    serializers: {
+      req: (request) => ({ method: request.method, url: request.url }),
+      // Response headers include Set-Cookie with the refresh token, so never log them.
+      res: (response) => ({ statusCode: response.statusCode }),
+    },
+  }),
+);
 
 app.get('/api/health', (_request, response) => {
   response.json({ status: 'ok', service: 'trainlead-api' });
 });
 
+app.use('/api/auth', authRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/requirements', requirementsRouter);
 
 app.use((_request, response) => {

@@ -3,6 +3,7 @@ import { Schema, model, Types } from 'mongoose';
 const PostingSchema = new Schema(
   {
     opportunityId: { type: Schema.Types.ObjectId, ref: 'Opportunity', required: true, index: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null, index: true },
     sourceName: { type: String, required: true },
     groupName: { type: String, required: true },
     vendorName: { type: String, default: null, select: false },
