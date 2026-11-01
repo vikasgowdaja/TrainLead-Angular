@@ -1,24 +1,27 @@
-@if (auth.currentUser(); as user) {
-  <header class="topbar">
-    <a class="brand" routerLink="/">
-      <span class="brand-mark" aria-hidden="true"><span></span></span>
-      <span>trainlead</span>
-    </a>
+<header class="topbar">
+  <a class="brand" routerLink="/">
+    <span class="brand-mark" aria-hidden="true"><span></span></span>
+    <span>trainlead</span>
+  </a>
 
-    <div class="topbar-actions">
-      <span class="network-status" role="img" aria-label="Live marketplace" title="Live marketplace"><span></span></span>
-      @if (user.role === 'Vendor' || user.role === 'Trainer') {
+  <nav class="header-primary-nav" aria-label="Main navigation">
+    <a class="header-primary-link" routerLink="/">Requirements</a>
+  </nav>
+
+  <div class="topbar-actions">
+    <span class="network-status" role="img" aria-label="Live marketplace" title="Live marketplace"><span></span></span>
+    @if (auth.currentUser()?.role === 'Vendor' || auth.currentUser()?.role === 'Trainer') {
         <div class="notification-wrap">
           <button class="icon-button notification-toggle" type="button" aria-label="Notifications" title="Notifications" [attr.aria-expanded]="notificationsOpen()" aria-controls="application-notifications" (click)="toggleNotifications()">
             <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
-            @if ((user.role === 'Vendor' ? pendingApplicationCount() : unreadTrainerNotificationCount()) > 0) { <span class="notification-count">{{ user.role === 'Vendor' ? pendingApplicationCount() : unreadTrainerNotificationCount() }}</span> }
+            @if ((auth.currentUser()?.role === 'Vendor' ? pendingApplicationCount() : unreadTrainerNotificationCount()) > 0) { <span class="notification-count">{{ auth.currentUser()?.role === 'Vendor' ? pendingApplicationCount() : unreadTrainerNotificationCount() }}</span> }
           </button>
           @if (notificationsOpen()) {
             <section class="notification-panel" id="application-notifications" aria-label="Recent notifications">
-              <header class="notification-panel-heading"><h2>Recent activity</h2><span>{{ user.role === 'Vendor' ? pendingApplicationCount() + ' pending' : unreadTrainerNotificationCount() + ' unread' }}</span></header>
+              <header class="notification-panel-heading"><h2>Recent activity</h2><span>{{ auth.currentUser()?.role === 'Vendor' ? pendingApplicationCount() + ' pending' : unreadTrainerNotificationCount() + ' unread' }}</span></header>
               @if (notificationsLoading()) { <p class="notification-empty">Loading notifications…</p> }
               @if (notificationsError(); as message) { <p class="notification-empty" role="alert">{{ message }}</p> }
-              @if (user.role === 'Vendor') {
+              @if (auth.currentUser()?.role === 'Vendor') {
                 @if (!notificationsLoading() && !notificationsError() && applicationNotifications().length === 0) { <p class="notification-empty">No recent application activity.</p> }
                 @for (notification of applicationNotifications(); track notification.applicationId) {
                   <a class="notification-entry" [routerLink]="['/requirements', notification.requirementId]" [fragment]="'application-' + notification.applicationId" (click)="closeNotifications()">
@@ -39,9 +42,10 @@
           }
         </div>
       }
-      <button class="icon-button theme-toggle" type="button" [attr.aria-label]="darkMode() ? 'Switch to light mode' : 'Switch to dark mode'" [title]="darkMode() ? 'Switch to light mode' : 'Switch to dark mode'" (click)="themeToggle.emit()">
-        <span class="material-symbols-outlined" aria-hidden="true">{{ darkMode() ? 'light_mode' : 'dark_mode' }}</span>
-      </button>
+    <button class="icon-button theme-toggle" type="button" [attr.aria-label]="darkMode() ? 'Switch to light mode' : 'Switch to dark mode'" [title]="darkMode() ? 'Switch to light mode' : 'Switch to dark mode'" (click)="themeToggle.emit()">
+      <span class="material-symbols-outlined" aria-hidden="true">{{ darkMode() ? 'light_mode' : 'dark_mode' }}</span>
+    </button>
+    @if (auth.currentUser(); as user) {
       <div class="account-menu-wrap">
         <button class="profile-button account-menu-toggle" type="button" aria-haspopup="true" [attr.aria-expanded]="accountMenuOpen()" aria-controls="account-menu" [attr.aria-label]="'Account menu for ' + user.name" (click)="toggleAccountMenu()">
           @if (user.role === 'Trainer' && trainerPhotoUrl(); as photoUrl) { <img class="profile-avatar profile-photo" [src]="photoUrl" alt="" /> } @else { <span class="profile-avatar">{{ initials() }}</span> }
@@ -65,6 +69,11 @@
           </nav>
         }
       </div>
-    </div>
-  </header>
-}
+    } @else {
+      <nav class="header-guest-actions" aria-label="Account">
+        <a class="header-signin-link" routerLink="/login">Sign in</a>
+        <a class="header-signup-link" routerLink="/register">Sign up</a>
+      </nav>
+    }
+  </div>
+</header>

@@ -1,6 +1,5 @@
 <main class="app-shell public-trainer-page">
   <section class="public-trainer-content" aria-labelledby="public-trainer-title">
-    <div class="public-profile-topline"><a class="back-link" routerLink="/">&larr; Back to requirements</a><span class="eyebrow">TRAINLEAD / PUBLIC PROFILE</span></div>
     @if (loading()) { <p class="auth-subtitle">Loading trainer profile…</p> }
     @else if (errorMessage(); as message) { <section class="detail-card" role="alert"><h1>Profile unavailable</h1><p>{{ message }}</p><a class="secondary-button" routerLink="/">Back to requirements</a></section> }
     @else if (profile(); as trainer) {
@@ -10,7 +9,6 @@
           @else { <span class="public-trainer-photo-placeholder material-symbols-outlined" aria-hidden="true">person</span> }
           <div class="public-profile-heading-copy"><p class="eyebrow">TRAINER PROFILE</p><h1 id="public-trainer-title">{{ trainer.name }}</h1><p class="public-profile-location"><span class="material-symbols-outlined" aria-hidden="true">location_on</span>{{ trainer.location || 'Location not provided' }}</p></div>
         </div>
-        <div class="public-profile-actions"><a class="primary-button" routerLink="/register">Create a trainer profile</a><a class="public-profile-signin" routerLink="/login">Already a member? Sign in</a></div>
       </header>
       <nav class="public-profile-nav" aria-label="Profile sections"><a href="#expertise">Skills</a><a href="#portfolio">Professional links</a>@if (trainer.portfolioItems.length) { <a href="#work">Work</a> }@if (trainer.certifications.length) { <a href="#certifications">Certifications</a> }</nav>
       @if (trainer.bio) { <section class="public-profile-bio" aria-labelledby="public-bio-title"><p class="eyebrow">ABOUT</p><h2 id="public-bio-title">Professional summary</h2><p>{{ trainer.bio }}</p></section> }
@@ -58,7 +56,6 @@
           </div>
         </section>
       }
-      <section class="public-profile-join" aria-labelledby="public-profile-join-title"><div><p class="eyebrow">YOUR NEXT STEP</p><h2 id="public-profile-join-title">Make your expertise discoverable.</h2><p>Create a TrainLead trainer profile to connect with organizations looking for your skills.</p></div><a class="primary-button" routerLink="/register">Join TrainLead</a></section>
     }
   </section>
 </main>
