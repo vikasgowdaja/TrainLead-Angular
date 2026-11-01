@@ -117,6 +117,7 @@
                   @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
                   @if (application.expectedRate !== null) { <p>Expected daily rate: {{ application.expectedRate | currency: 'INR' }}</p> }
                   @if (application.trainerRating !== null) { <div class="application-feedback"><strong>Project rating: {{ application.trainerRating }}/5</strong>@if (application.trainerReview) { <p>{{ application.trainerReview }}</p> }</div> }
+                  @if (application.status === 'Accepted' && !canRateTrainer(application)) { <p class="rating-availability" role="status">You can rate this trainer after the training ends on {{ application.requirement.endDate | date: 'mediumDate' }}.</p> }
                   @if (canRateTrainer(application)) {
                     <div class="trainer-rating-editor">
                       <label class="field"><span>Project performance</span><select [value]="trainerRating(application)" [disabled]="ratingBusy() === application.id" (change)="updateTrainerRating(application, $any($event.target).value)"><option value="0">Select a rating</option><option value="1">1 · Needs improvement</option><option value="2">2 · Developing</option><option value="3">3 · Meets expectations</option><option value="4">4 · Strong performance</option><option value="5">5 · Excellent</option></select></label>

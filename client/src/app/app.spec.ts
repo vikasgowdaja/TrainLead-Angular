@@ -3,11 +3,13 @@ import { provideRouter } from '@angular/router';
 import { App } from './app';
 
 describe('App', () => {
-  it('renders a router outlet for the pages', async () => {
+  it('keeps the shared header and router outlet mounted for every page', async () => {
     await TestBed.configureTestingModule({ imports: [App], providers: [provideRouter([])] }).compileComponents();
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('router-outlet')).not.toBeNull();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('app-header')).not.toBeNull();
+    expect(compiled.querySelector('router-outlet')).not.toBeNull();
   });
 });

@@ -1,9 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { DatePipe, TitleCasePipe } from '@angular/common';
+import { TitleCasePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { RequirementQuery } from '@trainlead/shared';
-import type { ApplicationNotificationView, DashboardStats, ExtractedRequirement, InboxItemView, RequirementSummary, SourceType, TrainerNotificationView } from '@trainlead/shared/domain';
+import type { DashboardStats, ExtractedRequirement, InboxItemView, RequirementSummary, SourceType } from '@trainlead/shared/domain';
 import { DELIVERY_MODES, REQUIREMENT_STATUSES, REQUIREMENT_SORTS, SOURCE_TYPES } from '@trainlead/shared/domain';
 import type { RequirementInput } from '@trainlead/shared';
 import { EMPTY, Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin } from 'rxjs';
@@ -15,7 +15,7 @@ import type { Requirement } from '../../requirement.model';
 
 @Component({
   selector: 'app-marketplace-page',
-  imports: [RequirementCard, RouterLink, DatePipe, TitleCasePipe],
+  imports: [RequirementCard, RouterLink, TitleCasePipe],
   templateUrl: './marketplace.html',
 })
 export class MarketplacePage {
@@ -24,9 +24,7 @@ export class MarketplacePage {
   protected readonly auth = inject(AuthService);
 
   protected readonly activeView = signal<'requirements' | 'inbox'>('requirements');
-  protected readonly darkMode = signal(false);
   protected readonly requirements = signal<Requirement[]>([]);
-  protected readonly trainerPhotoUrl = signal<string | null>(null);
   protected readonly stats = signal<DashboardStats | null>(null);
   protected readonly posts = signal<InboxItemView[]>([]);
   protected readonly filters = signal<RequirementQuery>({ sort: 'newest', page: 1, limit: 10 });
@@ -41,17 +39,7 @@ export class MarketplacePage {
   protected readonly captureGroup = signal('');
   protected readonly captureSourceType = signal<SourceType>('WhatsApp');
   protected readonly capturing = signal(false);
-  protected readonly organizationNeeded = signal(false);
-  protected readonly organizationExists = signal(false);
   protected readonly inboxEdits = signal<Record<string, Partial<ExtractedRequirement>>>({});
-  protected readonly applicationNotifications = signal<ApplicationNotificationView[]>([]);
-  protected readonly trainerNotifications = signal<TrainerNotificationView[]>([]);
-  protected readonly pendingApplicationCount = signal(0);
-  protected readonly unreadTrainerNotificationCount = signal(0);
-  protected readonly notificationsOpen = signal(false);
-  protected readonly accountMenuOpen = signal(false);
-  protected readonly notificationsLoading = signal(false);
-  protected readonly notificationsError = signal<string | null>(null);
   protected readonly statuses = REQUIREMENT_STATUSES;
   protected readonly modes = DELIVERY_MODES;
   protected readonly sorts = REQUIREMENT_SORTS;
@@ -59,14 +47,6 @@ export class MarketplacePage {
   private readonly searchChanges = new Subject<string>();
   private readonly textFilterChanges = new Subject<{ key: 'city' | 'skill'; value: string }>();
   private inboxLoaded = false;
-  protected readonly initials = computed(() =>
-    (this.auth.currentUser()?.name ?? '')
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join(''),
-  );
   protected readonly welcomeName = computed(() => this.auth.currentUser()?.name.trim() || 'there');
 
   protected readonly cards = computed(() => this.requirements());
@@ -78,28 +58,6 @@ export class MarketplacePage {
     this.textFilterChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(({ key, value }) => {
       this.updateFilters({ [key]: value || undefined });
     });
-    if (this.auth.hasRole('Trainer')) {
-      this.loadTrainerNotifications();
-      this.marketplace.getTrainerProfile().pipe(takeUntilDestroyed()).subscribe({
-        next: ({ data }) => this.trainerPhotoUrl.set(data.photoUrl),
-      });
-    }
-    if (this.auth.hasRole('Vendor')) {
-      this.loadApplicationNotifications();
-      this.marketplace.getMyOrganization().pipe(
-        catchError((error: unknown) => {
-          if (typeof error === 'object' && error !== null && 'status' in error && error.status === 409) {
-            this.organizationNeeded.set(true);
-            return EMPTY;
-          }
-          this.errorMessage.set(describeHttpError(error));
-          return EMPTY;
-        }),
-        takeUntilDestroyed(),
-      ).subscribe(({ data }) => {
-        if (data) this.organizationExists.set(true);
-      });
-    }
     this.reload();
   }
 
@@ -116,62 +74,6 @@ export class MarketplacePage {
         },
         error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
       });
-  }
-
-  protected toggleNotifications(): void {
-    const open = !this.notificationsOpen();
-    this.notificationsOpen.set(open);
-    if (open) {
-      if (this.auth.hasRole('Trainer')) this.loadTrainerNotifications();
-      else this.loadApplicationNotifications();
-    }
-  }
-
-  protected closeNotifications(): void {
-    this.notificationsOpen.set(false);
-  }
-
-  protected markTrainerNotificationRead(notification: TrainerNotificationView): void {
-    this.closeNotifications();
-    if (notification.readAt) return;
-    const readAt = new Date().toISOString();
-    this.trainerNotifications.update((items) => items.map((item) => item.id === notification.id ? { ...item, readAt } : item));
-    this.unreadTrainerNotificationCount.update((count) => Math.max(0, count - 1));
-    this.marketplace.markTrainerNotificationRead(notification.id).subscribe({
-      error: (error: unknown) => this.notificationsError.set(describeHttpError(error)),
-    });
-  }
-
-  protected toggleAccountMenu(): void {
-    this.accountMenuOpen.update((open) => !open);
-  }
-
-  protected closeAccountMenu(): void {
-    this.accountMenuOpen.set(false);
-  }
-
-  private loadApplicationNotifications(): void {
-    this.notificationsLoading.set(true);
-    this.notificationsError.set(null);
-    this.marketplace.getApplicationNotifications().pipe(finalize(() => this.notificationsLoading.set(false))).subscribe({
-      next: ({ data, pendingCount }) => {
-        this.applicationNotifications.set(data);
-        this.pendingApplicationCount.set(pendingCount);
-      },
-      error: (error: unknown) => this.notificationsError.set(describeHttpError(error)),
-    });
-  }
-
-  private loadTrainerNotifications(): void {
-    this.notificationsLoading.set(true);
-    this.notificationsError.set(null);
-    this.marketplace.getTrainerNotifications().pipe(finalize(() => this.notificationsLoading.set(false))).subscribe({
-      next: ({ data, unreadCount }) => {
-        this.trainerNotifications.set(data);
-        this.unreadTrainerNotificationCount.set(unreadCount);
-      },
-      error: (error: unknown) => this.notificationsError.set(describeHttpError(error)),
-    });
   }
 
   protected loadMore(): void {
@@ -327,14 +229,6 @@ export class MarketplacePage {
   protected setView(view: 'requirements' | 'inbox'): void {
     this.activeView.set(view);
     if (view === 'inbox') this.loadInbox();
-  }
-
-  protected toggleTheme(): void {
-    this.darkMode.update((isDark) => !isDark);
-  }
-
-  protected logout(): void {
-    this.auth.logout().subscribe(() => void this.router.navigateByUrl('/login'));
   }
 
   protected updatedLabel(): string {

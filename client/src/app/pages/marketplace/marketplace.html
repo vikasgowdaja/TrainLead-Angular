@@ -1,11 +1,6 @@
-<div class="app-shell" [class.dark-theme]="darkMode()">
-  <header class="topbar">
-    <a class="brand" href="#requirements" (click)="$event.preventDefault(); setView('requirements')">
-      <span class="brand-mark" aria-hidden="true"><span></span></span>
-      <span>trainlead</span>
-    </a>
-
-    <nav class="primary-nav" aria-label="Main navigation" role="tablist">
+<div class="app-shell">
+  <main class="workspace">
+    <nav class="primary-nav marketplace-tabs" aria-label="Marketplace sections" role="tablist">
       <button
         class="nav-tab"
         [class.is-active]="activeView() === 'requirements'"
@@ -25,79 +20,6 @@
         Inbox <span class="nav-count inbox-count">{{ stats()?.inboxPending ?? '—' }}</span>
       </button>
     </nav>
-
-    <div class="topbar-actions">
-      <span class="network-status" role="img" aria-label="Live marketplace" title="Live marketplace"><span></span></span>
-      @if (auth.hasRole('Vendor') || auth.hasRole('Trainer')) {
-        <div class="notification-wrap">
-          <button class="icon-button notification-toggle" type="button" aria-label="Notifications" title="Notifications" [attr.aria-expanded]="notificationsOpen()" aria-controls="application-notifications" (click)="toggleNotifications()">
-            <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
-            @if ((auth.hasRole('Vendor') ? pendingApplicationCount() : unreadTrainerNotificationCount()) > 0) { <span class="notification-count">{{ auth.hasRole('Vendor') ? pendingApplicationCount() : unreadTrainerNotificationCount() }}</span> }
-          </button>
-          @if (notificationsOpen()) {
-            <section class="notification-panel" id="application-notifications" aria-label="Recent notifications">
-              <header class="notification-panel-heading"><h2>Recent activity</h2><span>{{ auth.hasRole('Vendor') ? pendingApplicationCount() + ' pending' : unreadTrainerNotificationCount() + ' unread' }}</span></header>
-              @if (notificationsLoading()) { <p class="notification-empty">Loading notifications…</p> }
-              @if (notificationsError(); as message) { <p class="notification-empty" role="alert">{{ message }}</p> }
-              @if (auth.hasRole('Vendor')) {
-                @if (!notificationsLoading() && !notificationsError() && applicationNotifications().length === 0) { <p class="notification-empty">No recent application activity.</p> }
-                @for (notification of applicationNotifications(); track notification.applicationId) {
-                  <a class="notification-entry" [routerLink]="['/requirements', notification.requirementId]" [fragment]="'application-' + notification.applicationId" (click)="closeNotifications()">
-                    <span class="material-symbols-outlined notification-entry-icon" aria-hidden="true">{{ notification.status === 'Applied' ? 'person_add' : 'update' }}</span>
-                    <span class="notification-entry-copy"><strong>{{ notification.status === 'Applied' ? 'New trainer application' : notification.status === 'OnHold' ? 'Application on hold' : 'Application ' + notification.status }}</strong><span>{{ notification.trainerName }} · {{ notification.requirementTitle }}</span><time>{{ notification.updatedAt | date: 'short' }}</time></span>
-                  </a>
-                }
-              } @else {
-                @if (!notificationsLoading() && !notificationsError() && trainerNotifications().length === 0) { <p class="notification-empty">No new requirements or application updates.</p> }
-                @for (notification of trainerNotifications(); track notification.id) {
-                  <a class="notification-entry" [class.is-unread]="!notification.readAt" [routerLink]="['/requirements', notification.requirementId]" [fragment]="notification.applicationId ? 'application-' + notification.applicationId : undefined" (click)="markTrainerNotificationRead(notification)">
-                    <span class="material-symbols-outlined notification-entry-icon" aria-hidden="true">{{ notification.kind === 'NewRequirement' ? 'school' : notification.kind === 'ProjectRating' ? 'star' : 'update' }}</span>
-                    <span class="notification-entry-copy"><strong>{{ notification.title }}</strong><span>{{ notification.message }}</span><time>{{ notification.createdAt | date: 'short' }}</time></span>
-                  </a>
-                }
-              }
-            </section>
-          }
-        </div>
-      }
-      <button
-        class="icon-button theme-toggle"
-        type="button"
-        [attr.aria-label]="darkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
-        [title]="darkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
-        (click)="toggleTheme()"
-      >
-        <span class="material-symbols-outlined" aria-hidden="true">{{ darkMode() ? 'light_mode' : 'dark_mode' }}</span>
-      </button>
-      @if (auth.currentUser(); as user) {
-        <div class="account-menu-wrap">
-          <button class="profile-button account-menu-toggle" type="button" aria-haspopup="true" [attr.aria-expanded]="accountMenuOpen()" aria-controls="account-menu" [attr.aria-label]="'Account menu for ' + user.name" (click)="toggleAccountMenu()">
-            @if (user.role === 'Trainer' && trainerPhotoUrl(); as photoUrl) { <img class="profile-avatar profile-photo" [src]="photoUrl" alt="" /> } @else { <span class="profile-avatar">{{ initials() }}</span> }
-            <span class="profile-name">{{ user.name }}</span><span class="material-symbols-outlined account-menu-caret" aria-hidden="true">expand_more</span>
-          </button>
-          @if (accountMenuOpen()) {
-            <nav class="account-menu" id="account-menu" aria-label="Account navigation">
-              <div class="account-menu-user"><strong>{{ user.name }}</strong><span>{{ user.role }}</span></div>
-              @if (user.role === 'Trainer') { <a routerLink="/trainer/profile" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">person</span>My profile</a> }
-              <a routerLink="/skills" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">school</span>Skills</a>
-              @if (user.role === 'Vendor' || user.role === 'Admin') {
-                @if (organizationNeeded()) { <a routerLink="/organization/new" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">add_business</span>Set up organization</a> }
-                @if (organizationExists()) { <a routerLink="/organization" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">business</span>Organization</a> }
-              }
-              @if (user.role === 'Admin') {
-                <a routerLink="/admin" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">dashboard</span>Admin dashboard</a>
-                <a routerLink="/admin/users" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">group</span>Users</a>
-                <a routerLink="/admin/organizations" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">domain</span>Organizations</a>
-              }
-              <button type="button" (click)="closeAccountMenu(); logout()"><span class="material-symbols-outlined" aria-hidden="true">logout</span>Sign out</button>
-            </nav>
-          }
-        </div>
-      }
-    </div>
-  </header>
-
-  <main class="workspace">
     @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
     @if (activeView() === 'requirements') {
       <section class="welcome-card" aria-labelledby="welcome-title">

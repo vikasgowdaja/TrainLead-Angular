@@ -1,0 +1,24 @@
+.app-root-shell.dark-theme .app-shell {
+	--surface: #142523;
+	--panel: #1d302d;
+	--ink: #e7f0eb;
+	--muted: #a0b2ac;
+	--line: #334844;
+	--brand: #5fc2b5;
+	--brand-deep: #9bd9cf;
+	--accent: #f2a078;
+}
+
+.app-root-shell > router-outlet + * .app-shell { min-height: calc(100vh - 76px); }
+.app-root-shell.dark-theme .app-shell {
+	--surface: #142523;
+	--panel: #1d302d;
+	--ink: #e7f0eb;
+	--muted: #a0b2ac;
+	--line: #334844;
+	--brand: #5fc2b5;
+	--brand-deep: #9bd9cf;
+	--accent: #f2a078;
+}
+
+.app-root-shell > router-outlet + * .app-shell { min-height: calc(100vh - 76px); }
