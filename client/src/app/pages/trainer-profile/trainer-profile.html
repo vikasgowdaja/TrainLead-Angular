@@ -15,7 +15,7 @@
           @if (current.photoUrl) { <img class="trainer-photo-preview" [src]="current.photoUrl" alt="Trainer profile photo" /> }
           @else { <span class="trainer-photo-placeholder material-symbols-outlined" aria-hidden="true">person</span> }
           <label class="secondary-button trainer-file-button">{{ uploadingPhoto() ? 'Uploading…' : 'Upload photo' }}<input type="file" accept="image/jpeg,image/png,image/webp" [disabled]="uploadingPhoto()" (change)="onPhotoSelected($event)" /></label>
-          <small>JPEG, PNG, WebP · max 1 MB</small>
+          <small>JPEG, PNG, WebP · auto-optimized · source max 10 MB</small>
         </div>
         <div class="trainer-resume-column">
           <span class="material-symbols-outlined" aria-hidden="true">description</span>

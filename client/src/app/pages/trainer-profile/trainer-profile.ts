@@ -64,16 +64,13 @@ export class TrainerProfilePage {
       this.errorMessage.set('Choose a JPEG, PNG, or WebP image.');
       return;
     }
-    if (file.size > 1024 * 1024) {
-      this.errorMessage.set('Profile photo must be 1 MB or smaller.');
+    if (file.size > 10 * 1024 * 1024) {
+      this.errorMessage.set('Choose a source photo that is 10 MB or smaller.');
       return;
     }
     this.uploadingPhoto.set(true);
     this.errorMessage.set(null);
-    this.api.uploadTrainerPhoto(file).pipe(finalize(() => this.uploadingPhoto.set(false))).subscribe({
-      next: ({ data }) => { this.setProfile(data); this.successMessage.set('Profile photo uploaded.'); },
-      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
-    });
+    void this.uploadOptimizedPhoto(file);
   }
 
   protected onResumeSelected(event: Event): void {
@@ -102,5 +99,33 @@ export class TrainerProfilePage {
     this.name.set(profile.name);
     this.email.set(profile.email ?? '');
     this.phone.set(profile.phone ?? '');
+  }
+
+  private async uploadOptimizedPhoto(file: File): Promise<void> {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not prepare this photo. Try another image.');
+      const side = Math.min(bitmap.width, bitmap.height);
+      context.fillStyle = '#fff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 256, 256);
+      bitmap.close();
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => result ? resolve(result) : reject(new Error('Could not compress this photo. Try another image.')), 'image/jpeg', 0.82);
+      });
+      if (blob.size > 1024 * 1024) throw new Error('Optimized photo is still too large. Choose a simpler image.');
+      const optimized = new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.jpg`, { type: 'image/jpeg' });
+      this.api.uploadTrainerPhoto(optimized).pipe(finalize(() => this.uploadingPhoto.set(false))).subscribe({
+        next: ({ data }) => { this.setProfile(data); this.successMessage.set('Profile photo uploaded.'); },
+        error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+      });
+    } catch (error) {
+      this.uploadingPhoto.set(false);
+      this.errorMessage.set(error instanceof Error ? error.message : 'Could not prepare this photo. Try another image.');
+    }
   }
 }
