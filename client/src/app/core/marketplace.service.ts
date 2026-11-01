@@ -54,6 +54,14 @@ export class MarketplaceService {
     return this.http.patch<{ data: OrganizationView }>('/api/organizations/me/verification', { verificationStatus, verificationNote });
   }
 
+  sendOrganizationEmailOtp(): Observable<{ data: { expiresInSeconds: number } }> {
+    return this.http.post<{ data: { expiresInSeconds: number } }>('/api/organizations/me/email-verification/send', {});
+  }
+
+  verifyOrganizationEmailOtp(code: string): Observable<{ data: OrganizationView }> {
+    return this.http.post<{ data: OrganizationView }>('/api/organizations/me/email-verification/verify', { code });
+  }
+
   listOrganizationMembers(): Observable<{ data: OrganizationMemberView[] }> {
     return this.http.get<{ data: OrganizationMemberView[] }>('/api/organizations/me/members');
   }

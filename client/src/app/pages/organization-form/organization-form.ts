@@ -23,11 +23,16 @@ export class OrganizationFormPage {
   protected readonly saving = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly successMessage = signal<string | null>(null);
+  protected readonly memberErrorMessage = signal<string | null>(null);
   protected readonly existing = signal<OrganizationView | null>(null);
   protected readonly members = signal<OrganizationMemberView[]>([]);
   protected readonly memberIdentifier = signal('');
   protected readonly memberRole = signal<'owner' | 'recruiter'>('recruiter');
   protected readonly canManageMembers = computed(() => this.existing()?.myRole === 'owner');
+  protected readonly otpCode = signal('');
+  protected readonly otpSent = signal(false);
+  protected readonly sendingOtp = signal(false);
+  protected readonly verifyingOtp = signal(false);
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     legalName: ['', [Validators.required, Validators.minLength(2)]],
@@ -96,17 +101,67 @@ export class OrganizationFormPage {
     });
   }
 
+  protected sendEmailOtp(): void {
+    this.errorMessage.set(null);
+    this.sendingOtp.set(true);
+    this.api.sendOrganizationEmailOtp().pipe(finalize(() => this.sendingOtp.set(false))).subscribe({
+      next: ({ data }) => {
+        this.otpSent.set(true);
+        this.successMessage.set(`Verification code sent. It expires in ${Math.round(data.expiresInSeconds / 60)} minutes.`);
+      },
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    });
+  }
+
+  protected verifyEmailOtp(): void {
+    const code = this.otpCode().trim();
+    if (!/^\d{6}$/.test(code) || this.verifyingOtp()) return;
+    this.errorMessage.set(null);
+    this.verifyingOtp.set(true);
+    this.api.verifyOrganizationEmailOtp(code).pipe(finalize(() => this.verifyingOtp.set(false))).subscribe({
+      next: ({ data }) => {
+        this.existing.set(data);
+        this.otpCode.set('');
+        this.otpSent.set(false);
+        this.successMessage.set('Organization email verified.');
+      },
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    });
+  }
+
+  protected canVerifyEmailOtp(): boolean {
+    return /^\d{6}$/.test(this.otpCode().trim()) && !this.verifyingOtp();
+  }
+
   protected addMember(): void {
     const identifier = this.memberIdentifier().trim();
-    if (!identifier) return;
+    if (!this.canAddMember()) {
+      this.memberErrorMessage.set('Enter the registered email or 10-15 digit phone for an existing Vendor account.');
+      return;
+    }
+    const alreadyMember = this.members().find((member) =>
+      member.email?.toLowerCase() === identifier.toLowerCase() || member.phone === identifier,
+    );
+    if (alreadyMember) {
+      this.memberErrorMessage.set(`${alreadyMember.name} is already an organization ${alreadyMember.orgRole}.`);
+      return;
+    }
+    this.memberErrorMessage.set(null);
     this.api.addOrganizationMember(identifier, this.memberRole()).subscribe({
       next: ({ data }) => {
         this.members.update((members) => [...members.filter((member) => member.userId !== data.userId), data]);
         this.memberIdentifier.set('');
         this.successMessage.set('Organization member added.');
       },
-      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+      error: (error: unknown) => this.memberErrorMessage.set(describeHttpError(error)),
     });
+  }
+
+  protected canAddMember(): boolean {
+    const value = this.memberIdentifier().trim();
+    return value.includes('@')
+      ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+      : /^\+?[0-9]{10,15}$/.test(value);
   }
 
   protected changeMemberRole(member: OrganizationMemberView, role: 'owner' | 'recruiter'): void {

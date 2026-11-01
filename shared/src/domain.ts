@@ -131,6 +131,8 @@ export interface OrganizationView extends OrganizationPublicView {
   primaryContactName: string;
   email: string | null;
   phone: string | null;
+  emailVerified: boolean;
+  emailVerifiedAt: string | null;
   gstin: string | null;
   pan: string | null;
   verificationNote: string | null;

@@ -30,25 +30,50 @@
     @if (isEditing && existing(); as organization) {
       <section class="detail-section organization-verification">
         <h2>Verification</h2>
-        <p>Status: <span class="role-pill">{{ organization.verificationStatus }}</span></p>
+        <p>Organization review: <span class="role-pill">{{ organization.verificationStatus }}</span></p>
         @if (organization.verificationNote) { <p>{{ organization.verificationNote }}</p> }
         @if (organization.verificationStatus !== 'Verified') {
           <button class="secondary-button" type="button" (click)="submitVerification()">Submit for verification</button>
+        }
+        <p>Contact email: {{ organization.email || 'Not set' }} · <span class="role-pill">{{ organization.emailVerified ? 'Verified' : 'Not verified' }}</span></p>
+        @if (!organization.emailVerified) {
+          <p class="panel-footnote">OTP delivery requires GMAIL_USER and GMAIL_APP_PASSWORD in the repository .env. Use a Google App Password with 2-Step Verification enabled.</p>
+          @if (!organization.email) {
+            <p class="panel-footnote">Add an organization email and save before requesting an OTP.</p>
+          } @else {
+            <button class="secondary-button" type="button" [disabled]="sendingOtp()" (click)="sendEmailOtp()">{{ sendingOtp() ? 'Sending code…' : otpSent() ? 'Resend email code' : 'Send email code' }}</button>
+            @if (otpSent()) {
+              <div class="email-otp-form">
+                <label class="field"><span>6-digit email code</span><input inputmode="numeric" autocomplete="one-time-code" maxlength="6" [value]="otpCode()" (input)="otpCode.set($any($event.target).value)" /></label>
+                <button class="primary-button" type="button" [disabled]="!canVerifyEmailOtp()" (click)="verifyEmailOtp()">{{ verifyingOtp() ? 'Verifying…' : 'Verify email' }}</button>
+              </div>
+            }
+          }
         }
       </section>
 
       @if (canManageMembers()) {
         <section class="detail-section organization-members">
           <h2>Organization members</h2>
-          <div class="member-add">
-            <label class="field"><span>Email or phone</span><input [value]="memberIdentifier()" (input)="memberIdentifier.set($any($event.target).value)" /></label>
-            <label class="field"><span>Role</span><select [value]="memberRole()" (change)="memberRole.set($any($event.target).value)"><option value="recruiter">Recruiter</option><option value="owner">Owner</option></select></label>
-            <button class="secondary-button" type="button" (click)="addMember()">Add member</button>
+          <div class="member-help">
+            <p><strong>How to add someone</strong></p>
+            <ol>
+              <li>They register in TrainLead and choose the <strong>Vendor</strong> account type.</li>
+              <li>They do not create a separate organization; their Vendor account must remain unassigned.</li>
+              <li>Enter the exact email or phone they registered with. A person's name will not find the account.</li>
+            </ol>
+            <p><strong>Recruiter</strong> can post and manage requirements. <strong>Owner</strong> can also manage organization settings and members.</p>
           </div>
+          <div class="member-add">
+            <label class="field"><span>Vendor account email or phone</span><input type="text" autocomplete="off" placeholder="vendor@example.com or +919876543210" [value]="memberIdentifier()" (input)="memberIdentifier.set($any($event.target).value); memberErrorMessage.set(null)" /></label>
+            <label class="field"><span>Organization role</span><select [value]="memberRole()" (change)="memberRole.set($any($event.target).value)"><option value="recruiter">Recruiter</option><option value="owner">Owner</option></select></label>
+            <button class="secondary-button" type="button" [disabled]="!canAddMember()" (click)="addMember()">Add member</button>
+          </div>
+          @if (memberErrorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p> }
           @for (member of members(); track member.userId) {
             <div class="member-row">
               <span><strong>{{ member.name }}</strong><small>{{ member.email ?? member.phone }}</small></span>
-              @if (member.orgRole !== 'owner' || organization.myRole === 'owner') {
+              @if (member.orgRole !== 'owner') {
                 <select [value]="member.orgRole" [attr.aria-label]="'Role for ' + member.name" (change)="changeMemberRole(member, $any($event.target).value)"><option value="recruiter">Recruiter</option><option value="owner">Owner</option></select>
                 @if (member.userId !== auth.currentUser()?.id) { <button class="danger-button" type="button" (click)="removeMember(member)">Remove</button> }
               } @else { <span class="role-pill">Owner</span> }

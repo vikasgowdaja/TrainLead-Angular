@@ -1,0 +1,19 @@
+{
+  "name": "TrainLead",
+  "short_name": "TrainLead",
+  "icons": [
+    {
+      "src": "/brand/exports/icon/trainlead-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/exports/icon/trainlead-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#087a75",
+  "background_color": "#ffffff",
+  "display": "standalone"
+}

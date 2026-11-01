@@ -52,27 +52,17 @@
   display: inline-grid;
   width: 30px;
   height: 30px;
+  flex: 0 0 30px;
   place-items: center;
-  border-radius: 9px 9px 9px 3px;
-  background: var(--brand);
-  transform: rotate(-4deg);
+  border-radius: 0;
+  background: url('/brand/trainlead-icon.svg') center / contain no-repeat;
 }
 
 .brand-mark::before,
 .brand-mark::after,
 .brand-mark span {
-  position: absolute;
-  display: block;
-  width: 4px;
-  border-radius: 4px;
-  background: white;
-  content: '';
-  transform: rotate(4deg);
+  display: none;
 }
-
-.brand-mark::before { height: 12px; left: 8px; top: 9px; }
-.brand-mark span { height: 17px; left: 13px; top: 6px; }
-.brand-mark::after { height: 9px; left: 18px; top: 14px; }
 
 .primary-nav {
   align-self: stretch;

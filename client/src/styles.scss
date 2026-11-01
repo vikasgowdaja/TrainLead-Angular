@@ -90,6 +90,11 @@ body {
 .source-actions { margin-top: 8px; }
 .source-actions .field { min-width: min(280px, 100%); }
 .member-add, .skill-suggestion { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 12px; margin: 12px 0; padding: 14px; border: 1px dashed var(--line); border-radius: 6px; }
+.member-help { margin: 6px 0 12px; color: var(--muted); font-size: 13px; }
+.member-help p { margin: 5px 0; }
+.member-help ol { margin: 6px 0 10px; padding-left: 22px; }
+.member-help li { margin: 3px 0; }
+.member-add button:disabled { opacity: .55; cursor: not-allowed; }
 .member-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
 .member-row > span:first-child { display: grid; gap: 3px; }
 .member-row small { color: var(--muted); }

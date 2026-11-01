@@ -15,12 +15,15 @@
     "seed": "npm run build --workspace=@trainlead/shared && npm run build --workspace=@trainlead/server && npm run seed --workspace=@trainlead/server",
     "seed:admin": "npm run build --workspace=@trainlead/shared && npm run build --workspace=@trainlead/server && npm run seed:admin --workspace=@trainlead/server",
     "test": "npm run build --workspace=@trainlead/shared && npm run test --workspace=@trainlead/client -- --watch=false && npm run test --workspace=@trainlead/shared && npm run test --workspace=@trainlead/server",
+    "brand:export": "node client/scripts/export-brand.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
     "concurrently": "10.0.6",
+    "png-to-ico": "3.0.2",
     "prettier": "3.9.10",
+    "sharp": "0.35.5",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.0.5"

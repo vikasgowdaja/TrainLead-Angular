@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CreateRequirementSchema, RequirementInputSchema, RequirementQuerySchema, canTransition, skillKey } from './index.js';
+import { AddMemberSchema, CreateRequirementSchema, RequirementInputSchema, RequirementQuerySchema, canTransition, skillKey } from './index.js';
 
 const mysuru = {
   title: 'AngularJS foundations for engineering students',
@@ -39,6 +39,14 @@ describe('RequirementInputSchema', () => {
 describe('CreateRequirementSchema', () => {
   it('saves as a draft unless publish is requested', () => {
     expect(CreateRequirementSchema.parse({ requirement: mysuru }).publish).toBe(false);
+  });
+});
+
+describe('AddMemberSchema', () => {
+  it('accepts a registered account email or phone but rejects a display name', () => {
+    expect(AddMemberSchema.safeParse({ identifier: 'vendor@example.com', orgRole: 'recruiter' }).success).toBe(true);
+    expect(AddMemberSchema.safeParse({ identifier: '+919876543210', orgRole: 'recruiter' }).success).toBe(true);
+    expect(AddMemberSchema.safeParse({ identifier: 'Vikas Gowda J A', orgRole: 'recruiter' }).success).toBe(false);
   });
 });
 

@@ -75,8 +75,15 @@ export const VerificationUpdateSchema = z.object({
   verificationNote: optionalText(300),
 });
 
+export const EmailOtpVerifySchema = z.object({
+  code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your email.'),
+});
+
 export const AddMemberSchema = z.object({
-  identifier: z.string().trim().min(1, 'Enter the member email or phone.'),
+  identifier: z.string().trim().min(1, 'Enter the member email or phone.').refine(
+    (value) => value.includes('@') ? z.email().safeParse(value).success : PhoneSchema.safeParse(value).success,
+    'Enter an email address or 10-15 digit phone number, not a name.',
+  ),
   orgRole: z.enum(ORG_MEMBER_ROLES).default('recruiter'),
 });
 

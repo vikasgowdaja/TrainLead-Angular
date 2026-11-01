@@ -15,6 +15,7 @@
             <span class="role-pill">{{ organization.verificationStatus }}</span>
           </div>
           <p>{{ organization.city }}, {{ organization.state }} · {{ organization.email ?? 'No email' }} · {{ organization.phone ?? 'No phone' }}</p>
+          <p>Contact email: <span class="role-pill">{{ organization.emailVerified ? 'Verified' : 'Not verified' }}</span></p>
           <label class="field"><span>Review note</span><textarea rows="2" [ngModel]="notes()[organization.id] ?? organization.verificationNote ?? ''" (ngModelChange)="setNote(organization.id, $event)"></textarea></label>
           <div class="organization-review-actions">
             @for (status of verificationStatuses; track status) {
