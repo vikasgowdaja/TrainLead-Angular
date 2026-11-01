@@ -1,9 +1,11 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DELIVERY_MODES, SUPPORT_STATUSES, type RequirementDetail } from '@trainlead/shared/domain';
 import type { RequirementInput } from '@trainlead/shared';
-import { finalize } from 'rxjs';
+import { EMPTY, catchError, finalize } from 'rxjs';
+import { AuthService } from '../../core/auth/auth.service';
 import { MarketplaceService } from '../../core/marketplace.service';
 import { describeHttpError } from '../../core/http-error';
 
@@ -20,6 +22,7 @@ function dateOrder(control: AbstractControl): ValidationErrors | null {
 })
 export class RequirementFormPage {
   private readonly api = inject(MarketplaceService);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(FormBuilder);
@@ -70,6 +73,19 @@ export class RequirementFormPage {
         },
         error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
       });
+    } else if (this.auth.hasRole('Vendor')) {
+      this.loading.set(true);
+      this.api.getMyOrganization().pipe(
+        catchError((error: unknown) => {
+          if (error instanceof HttpErrorResponse && error.status === 409) {
+            void this.router.navigateByUrl('/organization/new');
+            return EMPTY;
+          }
+          this.errorMessage.set(describeHttpError(error));
+          return EMPTY;
+        }),
+        finalize(() => this.loading.set(false)),
+      ).subscribe();
     }
   }
 
