@@ -1,7 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import type { RequirementDetail, RequirementStatus } from '@trainlead/shared/domain';
+import type { RequirementDetail, RequirementStatus, SourceType, SourceView } from '@trainlead/shared/domain';
+import { SOURCE_TYPES } from '@trainlead/shared/domain';
 import { finalize } from 'rxjs';
 import { MarketplaceService } from '../../core/marketplace.service';
 import { describeHttpError } from '../../core/http-error';
@@ -18,7 +19,13 @@ export class RequirementDetailPage {
   protected readonly requirement = signal<RequirementDetail | null>(null);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
+  protected readonly savingSource = signal(false);
+  protected readonly sourceTypes = SOURCE_TYPES;
+  protected readonly sourceType = signal<SourceType>('Manual');
+  protected readonly sourceGroup = signal('');
+  protected readonly sourceText = signal('');
   protected readonly errorMessage = signal<string | null>(null);
+  protected readonly successMessage = signal<string | null>(null);
 
   constructor() {
     this.load();
@@ -37,7 +44,7 @@ export class RequirementDetailPage {
     if (this.saving()) return;
     this.saving.set(true);
     this.api.changeStatus(this.id, status).pipe(finalize(() => this.saving.set(false))).subscribe({
-      next: ({ data }) => this.requirement.set(data),
+      next: ({ data }) => { this.requirement.set(data); this.successMessage.set(`Requirement is now ${data.status}.`); },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });
   }
@@ -53,11 +60,47 @@ export class RequirementDetailPage {
     });
   }
 
+  protected addSource(): void {
+    this.savingSource.set(true);
+    this.api.addSource(this.id, {
+      sourceType: this.sourceType(),
+      groupName: this.sourceGroup(),
+      rawText: this.sourceText(),
+      postedAt: null,
+    }).pipe(finalize(() => this.savingSource.set(false))).subscribe({
+      next: () => { this.sourceGroup.set(''); this.sourceText.set(''); this.load(); },
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    });
+  }
+
+  protected updateSourceGroup(source: SourceView, value: string): void {
+    this.api.updateSource(source.requirementId, source.id, { groupName: value }).subscribe({
+      next: () => this.load(),
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    });
+  }
+
+  protected removeSource(source: SourceView): void {
+    if (!globalThis.confirm('Remove this source post? The requirement will remain.')) return;
+    this.api.removeSource(source.requirementId, source.id).subscribe({
+      next: () => this.load(),
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    });
+  }
+
   protected remove(): void {
     if (!globalThis.confirm('Delete this requirement? This hides it from the marketplace but retains source history.')) return;
     this.saving.set(true);
     this.api.deleteRequirement(this.id).pipe(finalize(() => this.saving.set(false))).subscribe({
       next: () => void this.router.navigateByUrl('/'),
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    });
+  }
+
+  protected ungroup(): void {
+    if (!globalThis.confirm('Remove this requirement from its opportunity group? The original vendor posts will remain.')) return;
+    this.api.ungroupRequirement(this.id).subscribe({
+      next: () => { this.successMessage.set('Requirement removed from the group.'); this.load(); },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });
   }

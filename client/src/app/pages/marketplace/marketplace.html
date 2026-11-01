@@ -28,6 +28,12 @@
 
     <div class="topbar-actions">
       <span class="network-status"><span></span> Live marketplace</span>
+      @if (organizationNeeded()) {
+        <a class="text-link" routerLink="/organization/new">Set up organization</a>
+      }
+      @if (organizationExists()) {
+        <a class="text-link" routerLink="/organization">Organization</a>
+      }
       <button
         class="icon-button theme-toggle"
         type="button"
@@ -40,7 +46,9 @@
       @if (auth.currentUser(); as user) {
         @if (user.role === 'Admin') {
           <a class="text-link" routerLink="/admin/users">Users</a>
+          <a class="text-link" routerLink="/admin/organizations">Organizations</a>
         }
+        <a class="text-link" routerLink="/skills">Skills</a>
         <span class="profile-button" [attr.aria-label]="'Signed in as ' + user.name + ', ' + user.role">
           <span class="profile-avatar">{{ initials() }}</span>
           <span class="profile-name">{{ user.name }}</span>
@@ -54,6 +62,7 @@
   </header>
 
   <main class="workspace">
+    @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
     @if (activeView() === 'requirements') {
       <section class="page-heading" aria-labelledby="page-title">
         <div>
@@ -82,6 +91,10 @@
           <span class="detail-mark orange-mark"></span>
           <span><strong>{{ stats()?.withPaymentDate ?? '—' }}</strong> with payment dates</span>
         </div>
+        <div class="overview-detail">
+          <span class="detail-mark teal-mark"></span>
+          <span><strong>{{ stats()?.vendors ?? '—' }}</strong> vendors</span>
+        </div>
         <span class="overview-index">{{ requirements().length }} <span>/</span> {{ stats()?.activeOpportunities ?? '—' }}</span>
       </section>
 
@@ -105,8 +118,12 @@
 
           <div class="dashboard-tools" aria-label="Search and filter requirements">
             <label class="search-field"><span class="material-symbols-outlined" aria-hidden="true">search</span><input type="search" placeholder="Search skills, city or vendor" [value]="filters().q ?? ''" (input)="search($any($event.target).value)" /></label>
-            <input aria-label="Filter by skill" placeholder="Skill" [value]="filters().skill ?? ''" (input)="setFilter('skill', $any($event.target).value)" />
-            <input aria-label="Filter by city" placeholder="City" [value]="filters().city ?? ''" (input)="setFilter('city', $any($event.target).value)" />
+            <input aria-label="Filter by skill" placeholder="Skill" [value]="filters().skill ?? ''" (input)="setTextFilter('skill', $any($event.target).value)" />
+            <input aria-label="Filter by city" placeholder="City" [value]="filters().city ?? ''" (input)="setTextFilter('city', $any($event.target).value)" />
+            <select aria-label="Filter by vendor" [value]="filters().vendor ?? ''" (change)="setFilter('vendor', $any($event.target).value)">
+              <option value="">All vendors</option>
+              @for (vendor of stats()?.topVendors ?? []; track vendor.id) { <option [value]="vendor.id">{{ vendor.name }}</option> }
+            </select>
             <select aria-label="Filter by status" [value]="filters().status ?? ''" (change)="setFilter('status', $any($event.target).value)">
               <option value="">All statuses</option>
               @for (status of statuses; track status) { <option [value]="status">{{ status }}</option> }
@@ -116,7 +133,9 @@
               @for (mode of modes; track mode) { <option [value]="mode">{{ mode }}</option> }
             </select>
             <label class="date-filter">Start from <input type="date" [value]="filters().startFrom ?? ''" (change)="setDateFilter('startFrom', $any($event.target).value)" /></label>
-            <label class="date-filter">Through <input type="date" [value]="filters().startTo ?? ''" (change)="setDateFilter('startTo', $any($event.target).value)" /></label>
+            <label class="date-filter">Start through <input type="date" [value]="filters().startTo ?? ''" (change)="setDateFilter('startTo', $any($event.target).value)" /></label>
+            <label class="date-filter">End from <input type="date" [value]="filters().endFrom ?? ''" (change)="setDateFilter('endFrom', $any($event.target).value)" /></label>
+            <label class="date-filter">End through <input type="date" [value]="filters().endTo ?? ''" (change)="setDateFilter('endTo', $any($event.target).value)" /></label>
             <label class="filter-check"><input type="checkbox" [checked]="filters().repeated === true" (change)="setBooleanFilter('repeated', $event)" /> Repeated</label>
             <label class="filter-check"><input type="checkbox" [checked]="filters().hasPaymentDate === true" (change)="setBooleanFilter('hasPaymentDate', $event)" /> Payment date</label>
           </div>
@@ -183,6 +202,10 @@
       <section class="capture-panel" aria-label="Capture a requirement post">
         <label for="capture-text">Capture a message</label>
         <textarea id="capture-text" rows="3" [value]="captureText()" (input)="captureText.set($any($event.target).value)" placeholder="Paste a vendor or group message"></textarea>
+        <div class="capture-meta">
+          <label class="field"><span>Source type</span><select [value]="captureSourceType()" (change)="captureSourceType.set($any($event.target).value)">@for (type of sourceTypes; track type) { <option [value]="type">{{ type }}</option> }</select></label>
+          <label class="field"><span>Group name</span><input [value]="captureGroup()" (input)="captureGroup.set($any($event.target).value)" /></label>
+        </div>
         <button class="create-requirement-button" type="button" [disabled]="capturing() || !captureText().trim()" (click)="capture()">{{ capturing() ? 'Capturing…' : 'Capture for review' }}</button>
       </section>
       @if (inboxError(); as message) { <div class="state-banner error-banner" role="alert"><span>{{ message }}</span><button type="button" (click)="loadInbox()">Retry</button></div> }
@@ -202,6 +225,22 @@
               <span class="post-group"><span class="material-symbols-outlined" aria-hidden="true">forum</span>{{ post.groupName || 'No group specified' }}</span>
               <span class="review-status"><span></span>{{ post.status }} · {{ post.missingFields.length ? 'Needs review' : 'Ready to review' }}</span>
               @if (post.missingFields.length) { <p class="panel-footnote">Missing: {{ post.missingFields.join(', ') }}</p> }
+              @if (post.status !== 'Converted' && post.status !== 'Discarded') {
+                <div class="inbox-review" aria-label="Review extracted fields">
+                  <label class="field"><span>Title</span><input [value]="inboxText(post, 'title')" (input)="editInboxText(post.id, 'title', $any($event.target).value)" /></label>
+                  <label class="field"><span>Skills</span><input [value]="inboxSkills(post)" (input)="editInboxSkills(post.id, $any($event.target).value)" /></label>
+                  <label class="field"><span>City</span><input [value]="inboxText(post, 'city')" (input)="editInboxText(post.id, 'city', $any($event.target).value)" /></label>
+                  <label class="field"><span>Start date</span><input type="date" [value]="inboxText(post, 'startDate')" (input)="editInboxText(post.id, 'startDate', $any($event.target).value)" /></label>
+                  <label class="field"><span>End date</span><input type="date" [value]="inboxText(post, 'endDate')" (input)="editInboxText(post.id, 'endDate', $any($event.target).value)" /></label>
+                  <label class="field"><span>Duration</span><input type="number" min="1" [value]="inboxDuration(post) ?? ''" (input)="editInboxDuration(post.id, $any($event.target).value)" /></label>
+                  <label class="field field-wide"><span>Audience</span><input [value]="inboxText(post, 'audience')" (input)="editInboxText(post.id, 'audience', $any($event.target).value)" /></label>
+                  <div class="inbox-actions field-wide">
+                    <button class="secondary-button" type="button" (click)="retryInbox(post)">Retry extraction</button>
+                    <button class="secondary-button" type="button" (click)="saveInboxReview(post)">Save review</button>
+                    <button class="create-requirement-button" type="button" [disabled]="!canConvertInbox(post)" (click)="convertInbox(post)">Publish requirement</button>
+                  </div>
+                </div>
+              }
             </div>
             <button class="icon-button" type="button" aria-label="Discard captured message" title="Discard" (click)="discardInbox(post.id)"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
           </article>

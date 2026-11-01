@@ -1,10 +1,12 @@
 <main class="app-shell auth-page">
   <section class="auth-card wide-card" aria-labelledby="organization-title">
     <a class="back-link" routerLink="/">&larr; Back to requirements</a>
-    <p class="eyebrow">VENDOR ONBOARDING <span>/</span> ORGANIZATION</p>
-    <h1 id="organization-title">Set up your organization</h1>
-    <p class="auth-subtitle">Your organization owns its requirements and private posting terms.</p>
+    <p class="eyebrow">{{ isEditing ? 'VENDOR WORKSPACE' : 'VENDOR ONBOARDING' }} <span>/</span> ORGANIZATION</p>
+    <h1 id="organization-title">{{ isEditing ? 'Organization settings' : 'Set up your organization' }}</h1>
+    <p class="auth-subtitle">{{ isEditing ? 'Manage your organization profile, members, and verification.' : 'Your organization owns its requirements and private posting terms.' }}</p>
 
+    @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
+    @if (loading()) { <p class="auth-subtitle">Loading organization…</p> } @else {
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="organization-form">
       <label class="field"><span>Legal name</span><input formControlName="legalName" autocomplete="organization" />
         @if (form.controls.legalName.touched && form.controls.legalName.invalid) { <small class="field-error">Enter the registered organization name.</small> }
@@ -21,7 +23,39 @@
       <label class="field"><span>PAN <small>(optional)</small></span><input formControlName="pan" /></label>
 
       @if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p> }
-      <button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Create organization' }}</button>
+      <button class="primary-button field-wide" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : isEditing ? 'Save organization' : 'Create organization' }}</button>
     </form>
+    }
+
+    @if (isEditing && existing(); as organization) {
+      <section class="detail-section organization-verification">
+        <h2>Verification</h2>
+        <p>Status: <span class="role-pill">{{ organization.verificationStatus }}</span></p>
+        @if (organization.verificationNote) { <p>{{ organization.verificationNote }}</p> }
+        @if (organization.verificationStatus !== 'Verified') {
+          <button class="secondary-button" type="button" (click)="submitVerification()">Submit for verification</button>
+        }
+      </section>
+
+      @if (canManageMembers()) {
+        <section class="detail-section organization-members">
+          <h2>Organization members</h2>
+          <div class="member-add">
+            <label class="field"><span>Email or phone</span><input [value]="memberIdentifier()" (input)="memberIdentifier.set($any($event.target).value)" /></label>
+            <label class="field"><span>Role</span><select [value]="memberRole()" (change)="memberRole.set($any($event.target).value)"><option value="recruiter">Recruiter</option><option value="owner">Owner</option></select></label>
+            <button class="secondary-button" type="button" (click)="addMember()">Add member</button>
+          </div>
+          @for (member of members(); track member.userId) {
+            <div class="member-row">
+              <span><strong>{{ member.name }}</strong><small>{{ member.email ?? member.phone }}</small></span>
+              @if (member.orgRole !== 'owner' || organization.myRole === 'owner') {
+                <select [value]="member.orgRole" [attr.aria-label]="'Role for ' + member.name" (change)="changeMemberRole(member, $any($event.target).value)"><option value="recruiter">Recruiter</option><option value="owner">Owner</option></select>
+                @if (member.userId !== auth.currentUser()?.id) { <button class="danger-button" type="button" (click)="removeMember(member)">Remove</button> }
+              } @else { <span class="role-pill">Owner</span> }
+            </div>
+          } @empty { <p class="auth-subtitle">No members found.</p> }
+        </section>
+      }
+    }
   </section>
 </main>

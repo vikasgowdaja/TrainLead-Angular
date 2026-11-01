@@ -55,6 +55,7 @@ body {
 .load-more-button { display: flex; width: 100%; margin-top: 12px; }
 .danger-button { border-color: #bd4d3d; color: #bd4d3d; }
 .state-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 6px; color: var(--ink); }
+.success-toast { margin: 12px 0; padding: 10px 14px; border-left: 3px solid var(--brand); background: color-mix(in srgb, var(--brand) 9%, var(--panel)); color: var(--ink); font-size: 13px; }
 .error-banner { border-color: #bd4d3d; color: #a23c30; }
 .error-banner button { min-height: 38px; padding: 0 12px; border: 1px solid currentColor; border-radius: 5px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .empty-state { padding: 32px 18px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); text-align: center; }
@@ -79,5 +80,31 @@ body {
 .source-detail { display: grid; gap: 5px; padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
 .source-detail > span, .source-detail time { color: var(--muted); font-size: 12px; }
 .source-detail p { margin: 4px 0; white-space: pre-wrap; }
+.capture-panel { display: grid; gap: 10px; margin: 16px 0; padding: 18px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.capture-panel > label { font-family: 'Fraunces', Georgia, serif; font-size: 19px; font-weight: 560; }
+.capture-panel textarea { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; resize: vertical; }
+.capture-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.inbox-review { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.inbox-actions, .source-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.source-create { display: grid; gap: 10px; margin: 12px 0; padding: 14px; border: 1px dashed var(--line); border-radius: 6px; }
+.source-actions { margin-top: 8px; }
+.source-actions .field { min-width: min(280px, 100%); }
+.member-add, .skill-suggestion { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 12px; margin: 12px 0; padding: 14px; border: 1px dashed var(--line); border-radius: 6px; }
+.member-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+.member-row > span:first-child { display: grid; gap: 3px; }
+.member-row small { color: var(--muted); }
+.member-row select { min-height: 40px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.organization-review, .skill-row { margin: 12px 0; padding: 14px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+.organization-review-heading, .skill-row-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.organization-review h2 { margin: 0; font-family: 'Fraunces', Georgia, serif; font-size: 19px; font-weight: 560; }
+.organization-review p, .skill-row p { color: var(--muted); font-size: 13px; }
+.organization-review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.skill-search { max-width: 500px; margin: 18px 0; }
+.skill-edit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.skill-edit-grid .field { min-width: 0; }
+.sort-button select { border: 0; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
+.sort-button select:focus-visible { outline: 2px solid var(--brand); }
+@media (max-width: 700px) { .member-add, .skill-suggestion { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .capture-meta, .inbox-review, .skill-edit-grid { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .dashboard-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } .search-field { grid-column: 1 / -1; } .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .organization-form, .requirement-form { grid-template-columns: 1fr; } .field-wide { grid-column: auto; } .support-fields, .dashboard-tools, .detail-grid { grid-template-columns: 1fr; } .search-field { grid-column: auto; } }

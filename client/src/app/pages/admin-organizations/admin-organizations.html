@@ -1,0 +1,30 @@
+<main class="app-shell auth-page admin-page">
+  <section class="auth-card wide-card" aria-labelledby="organizations-title">
+    <a class="back-link" routerLink="/">&larr; Back to requirements</a>
+    <p class="eyebrow">ADMIN <span>/</span> VENDOR NETWORK</p>
+    <h1 id="organizations-title">Organizations</h1>
+    @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
+    @if (loading()) { <p class="auth-subtitle">Loading organizations…</p> }
+    @else if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p><button class="secondary-button" type="button" (click)="load()">Retry</button> }
+    @else if (organizations().length === 0) { <p class="auth-subtitle">No organizations have registered yet.</p> }
+    @else {
+      @for (organization of organizations(); track organization.id) {
+        <article class="organization-review">
+          <div class="organization-review-heading">
+            <div><h2>{{ organization.name }}</h2><p>{{ organization.legalName }} · {{ organization.type }}</p></div>
+            <span class="role-pill">{{ organization.verificationStatus }}</span>
+          </div>
+          <p>{{ organization.city }}, {{ organization.state }} · {{ organization.email ?? 'No email' }} · {{ organization.phone ?? 'No phone' }}</p>
+          <label class="field"><span>Review note</span><textarea rows="2" [ngModel]="notes()[organization.id] ?? organization.verificationNote ?? ''" (ngModelChange)="setNote(organization.id, $event)"></textarea></label>
+          <div class="organization-review-actions">
+            @for (status of verificationStatuses; track status) {
+              @if (status !== organization.verificationStatus) {
+                <button class="secondary-button" type="button" (click)="review(organization, status)">{{ status }}</button>
+              }
+            }
+          </div>
+        </article>
+      }
+    }
+  </section>
+</main>

@@ -18,7 +18,7 @@ import {
   type VendorRef,
 } from '@trainlead/shared';
 import { Types } from 'mongoose';
-import { requireAuth } from '../auth/middleware.js';
+import { requireAuth, requireRole } from '../auth/middleware.js';
 import { actorOf, loadActor, requireOrganization } from '../auth/actor.js';
 import { HttpError, escapeRegex, notFound, objectId, parseBody, toIsoDate } from '../http.js';
 import { Organization, organizationName } from '../models/organization.js';
@@ -31,7 +31,7 @@ import { canonicalSkillKey, resolveSkills } from '../services/skills.js';
 import { withTransaction } from '../database.js';
 
 const router = Router();
-router.use(requireAuth, loadActor);
+router.use(requireAuth);
 
 interface RequirementRecord {
   _id: Types.ObjectId;
@@ -188,11 +188,23 @@ async function presentationMaps(requirements: RequirementRecord[], actor: Return
   }
   const sourceCounts = requirementIds.length
     ? await RequirementSource.aggregate([
-        { $match: { requirementId: { $in: requirementIds }, deletedAt: null } },
+        { $match: { requirementId: { $in: [...requirementIds, ...siblings.map((item) => item._id)] }, deletedAt: null } },
         { $group: { _id: '$requirementId', count: { $sum: 1 } } },
       ])
     : [];
-  const sourceCountMap = new Map(sourceCounts.map((item) => [String(item['_id']), Number(item['count'])]));
+  const countByRequirement = new Map(sourceCounts.map((item) => [String(item['_id']), Number(item['count'])]));
+  const allMembers = [...new Map([...requirements, ...siblings].map((item) => [String(item._id), item])).values()];
+  const sourceCountMap = new Map<string, number>();
+  for (const requirement of allMembers) {
+    const groupKey = requirement.groupId ? String(requirement.groupId) : String(requirement._id);
+    const countKey = String(requirement._id);
+    sourceCountMap.set(countKey, requirement.groupId
+      ? allMembers
+          .filter((member) => member.groupId?.equals(requirement.groupId))
+          .reduce((total, member) => total + (countByRequirement.get(String(member._id)) ?? 0), 0)
+      : countByRequirement.get(countKey) ?? 0);
+    if (!requirement.groupId) sourceCountMap.set(groupKey, countByRequirement.get(countKey) ?? 0);
+  }
   return { organizationMap, groupSizeMap, groupVendorsMap, sourceCountMap };
 }
 
@@ -251,30 +263,39 @@ async function createRequirement(
 
 async function requirementDetail(requirement: RequirementRecord, actor: ReturnType<typeof actorOf>): Promise<RequirementDetail> {
   const canManage = canManageRequirement(actor, requirement);
-  const [maps, sourceDocuments, groupDocuments, organizationMap] = await Promise.all([
+  const [maps, groupDocuments] = await Promise.all([
     presentationMaps([requirement], actor),
-    RequirementSource.find({ requirementId: requirement._id, deletedAt: null } as never).sort({ createdAt: 1 }).lean(),
     requirement.groupId
       ? Requirement.find({ groupId: requirement.groupId, ...visibility(actor) } as never)
           .select('_id title status organizationId groupId')
           .lean()
       : Promise.resolve([]),
-    getOrganizationMap([requirement.organizationId]),
   ]);
+  const groupRecords = groupDocuments as unknown as RequirementRecord[];
+  const sourceRequirementIds = requirement.groupId ? groupRecords.map((member) => member._id) : [requirement._id];
+  const sourceDocuments = await RequirementSource.find({ requirementId: { $in: sourceRequirementIds }, deletedAt: null } as never)
+    .sort({ createdAt: 1 })
+    .lean();
+  const organizationIds = [requirement.organizationId, ...groupRecords.map((member) => member.organizationId)];
+  const organizationMap = await getOrganizationMap(organizationIds);
   const sources: SourceView[] = sourceDocuments.map((source) => {
     const org = organizationMap.get(String(source['organizationId']));
     return {
       id: String(source['_id']),
+      requirementId: String(source['requirementId']),
       sourceType: source['sourceType'] as SourceView['sourceType'],
       groupName: String(source['groupName'] ?? ''),
       postedAt: toIsoDate(source['postedAt'] as Date | null),
       importedAt: (source['importedAt'] as Date).toISOString(),
       organization: org ? toVendorRef(org) : { id: String(source['organizationId']), name: 'Organization' },
-      rawText: canManage ? String(source['rawText'] ?? '') : null,
+      rawText: actor.role === 'Admin' || actor.organizationId?.toString() === String(source['organizationId'])
+        ? String(source['rawText'] ?? '')
+        : null,
+      canManage: actor.role === 'Admin' || actor.organizationId?.toString() === String(source['organizationId']),
     };
   });
   const groupMembers: GroupMemberView[] = [];
-  for (const member of groupDocuments as unknown as RequirementRecord[]) {
+  for (const member of groupRecords) {
     const org = organizationMap.get(String(member.organizationId));
     groupMembers.push({
       id: String(member._id),
@@ -324,7 +345,7 @@ async function requirementDetail(requirement: RequirementRecord, actor: ReturnTy
   };
 }
 
-router.get('/stats', async (request, response) => {
+router.get('/stats', loadActor, async (request, response) => {
   const actor = actorOf(request);
   const requirements = (await Requirement.find(visibility(actor) as never)
     .select('_id groupId status paymentDueDate organizationId createdAt updatedAt')
@@ -343,6 +364,9 @@ router.get('/stats', async (request, response) => {
     ? await RequirementSource.countDocuments({ requirementId: { $in: requirementIds }, deletedAt: null } as never)
     : 0;
   const organizationIds = [...new Set(requirements.map((item) => String(item.organizationId)))];
+  const vendorCount = actor.role === 'Admin'
+    ? await Organization.countDocuments({ deletedAt: null } as never)
+    : organizationIds.length;
   const organizations = organizationIds.length
     ? await Organization.find({ _id: { $in: organizationIds } } as never).select('legalName brandName').lean()
     : [];
@@ -365,7 +389,7 @@ router.get('/stats', async (request, response) => {
     newThisWeek: newThisWeek.size,
     repeatedGroups: repeatedGroups.size,
     withPaymentDate: withPaymentDate.size,
-    vendors: organizationIds.length,
+    vendors: vendorCount,
     sourcePosts,
     inboxPending,
     lastUpdatedAt: requirements.reduce<string | null>((latest, item) => {
@@ -381,15 +405,25 @@ router.get('/stats', async (request, response) => {
   response.json({ data: stats });
 });
 
-router.get('/', async (request, response) => {
+router.get('/', loadActor, async (request, response) => {
   const actor = actorOf(request);
   const query = parseBody(RequirementQuerySchema, request.query, 'query');
   const clauses: Record<string, unknown>[] = [visibility(actor) as Record<string, unknown>];
+  if (query.mine) {
+    clauses.push(actor.role === 'Admin'
+      ? { createdBy: actor.userId }
+      : actor.organizationId
+        ? { organizationId: actor.organizationId }
+        : { _id: { $exists: false } });
+  }
   if (query.status) clauses.push({ status: query.status });
   if (query.city) clauses.push({ city: { $regex: `^${escapeRegex(query.city)}$`, $options: 'i' } });
   if (query.vendor) clauses.push({ organizationId: objectId(query.vendor, 'vendor id') });
   if (query.startFrom || query.startTo) {
     clauses.push({ startDate: { ...(query.startFrom ? { $gte: new Date(query.startFrom) } : {}), ...(query.startTo ? { $lte: new Date(query.startTo) } : {}) } });
+  }
+  if (query.endFrom || query.endTo) {
+    clauses.push({ endDate: { ...(query.endFrom ? { $gte: new Date(query.endFrom) } : {}), ...(query.endTo ? { $lte: new Date(query.endTo) } : {}) } });
   }
   if (query.mode) clauses.push({ mode: query.mode });
   if (query.repeated !== undefined) clauses.push(query.repeated ? { groupId: { $ne: null } } : { groupId: null });
@@ -419,28 +453,38 @@ router.get('/', async (request, response) => {
     start: { startDate: 1 },
   };
   const filter = { $and: clauses };
-  const [total, pageRecords] = await Promise.all([
-    Requirement.countDocuments(filter as never),
-    Requirement.find(filter as never)
-      .sort(sortBy[query.sort])
-      .skip((query.page - 1) * query.limit)
-      .limit(query.limit)
-      .lean(),
+  const recordSort = Object.fromEntries(Object.entries(sortBy[query.sort]).map(([field, direction]) => [`record.${field}`, direction]));
+  const [result] = await Requirement.aggregate([
+    { $match: filter },
+    { $sort: sortBy[query.sort] },
+    { $group: { _id: { $ifNull: ['$groupId', '$_id'] }, record: { $first: '$$ROOT' } } },
+    { $sort: recordSort },
+    {
+      $facet: {
+        data: [
+          { $skip: (query.page - 1) * query.limit },
+          { $limit: query.limit },
+          { $replaceRoot: { newRoot: '$record' } },
+        ],
+        total: [{ $count: 'count' }],
+      },
+    },
   ]);
-  const records = pageRecords as unknown as RequirementRecord[];
+  const records = (result?.['data'] ?? []) as RequirementRecord[];
+  const total = Number(result?.['total']?.[0]?.['count'] ?? 0);
   const maps = await presentationMaps(records, actor);
   const data = await Promise.all(records.map((record) => summarize(record, actor, maps.organizationMap, maps.groupSizeMap, maps.groupVendorsMap, maps.sourceCountMap)));
   response.json({ data, page: query.page, limit: query.limit, total, hasMore: query.page * query.limit < total });
 });
 
-router.post('/', async (request, response) => {
+router.post('/', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const payload = parseBody(CreateRequirementSchema, request.body, 'requirement');
   const record = await createRequirement(actor, payload.requirement, payload.publish, payload.source, payload.organizationId);
   response.status(201).json({ data: await requirementDetail(record, actor) });
 });
 
-router.post('/groups', async (request, response) => {
+router.post('/groups', loadActor, async (request, response) => {
   const actor = actorOf(request);
   const payload = parseBody(GroupRequirementsSchema, request.body, 'group');
   const ids = payload.requirementIds.map((id) => objectId(id, 'requirement id'));
@@ -452,20 +496,20 @@ router.post('/groups', async (request, response) => {
   response.status(201).json({ data: { id: String(groupId) } });
 });
 
-router.get('/:id/similar', async (request, response) => {
+router.get('/:id/similar', loadActor, async (request, response) => {
   const actor = actorOf(request);
   const requirement = await getVisibleRequirement(objectId(request.params['id'], 'requirement id'), actor);
   const similar = await findSimilar(requirement as unknown as RequirementDoc, visibility(actor));
   response.json({ data: similar.map((item) => ({ id: String(item['_id']), title: item.title, city: item.city, startDate: toIsoDate(item.startDate), skills: item.skillNames })) });
 });
 
-router.get('/:id', async (request, response) => {
+router.get('/:id', loadActor, async (request, response) => {
   const actor = actorOf(request);
   const requirement = await getVisibleRequirement(objectId(request.params['id'], 'requirement id'), actor);
   response.json({ data: await requirementDetail(requirement, actor) });
 });
 
-router.put('/:id', async (request, response) => {
+router.put('/:id', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const id = objectId(request.params['id'], 'requirement id');
   const current = await getVisibleRequirement(id, actor);
@@ -473,6 +517,7 @@ router.put('/:id', async (request, response) => {
   const input = parseBody(RequirementInputSchema, request.body, 'requirement');
   const updated = await withTransaction(async (session) => {
     const skills = await resolveSkills(input.skills, actor.userId, session);
+    if (current.groupId) await ungroup(id, session);
     const updateQuery = Requirement.findOneAndUpdate(
       { _id: id, organizationId: current.organizationId, deletedAt: null } as never,
       {
@@ -482,6 +527,7 @@ router.put('/:id', async (request, response) => {
           skillNames: skills.names,
           skillKeys: skills.keys,
           matchKey: computeMatchKey(input.city, input.startDate, input.endDate),
+          autoGroupOptOut: false,
         },
       },
       { new: true, runValidators: true },
@@ -494,7 +540,7 @@ router.put('/:id', async (request, response) => {
   response.json({ data: await requirementDetail(updated, actor) });
 });
 
-router.patch('/:id/status', async (request, response) => {
+router.patch('/:id/status', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const id = objectId(request.params['id'], 'requirement id');
   const current = await getVisibleRequirement(id, actor);
@@ -511,7 +557,7 @@ router.patch('/:id/status', async (request, response) => {
   response.json({ data: await requirementDetail(updated as unknown as RequirementRecord, actor) });
 });
 
-router.post('/:id/duplicate', async (request, response) => {
+router.post('/:id/duplicate', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const current = await getVisibleRequirement(objectId(request.params['id'], 'requirement id'), actor);
   if (!canManageRequirement(actor, current)) throw new HttpError(403, 'Only the posting organization can duplicate this requirement');
@@ -543,7 +589,7 @@ router.post('/:id/duplicate', async (request, response) => {
   response.status(201).json({ data: await requirementDetail(duplicate, actor) });
 });
 
-router.post('/:id/sources', async (request, response) => {
+router.post('/:id/sources', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const id = objectId(request.params['id'], 'requirement id');
   const requirement = await getVisibleRequirement(id, actor);
@@ -559,7 +605,7 @@ router.post('/:id/sources', async (request, response) => {
   response.status(201).json({ data: { id: String(source._id) } });
 });
 
-router.patch('/:id/sources/:sourceId', async (request, response) => {
+router.patch('/:id/sources/:sourceId', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const requirementId = objectId(request.params['id'], 'requirement id');
   const requirement = await getVisibleRequirement(requirementId, actor);
@@ -575,7 +621,7 @@ router.patch('/:id/sources/:sourceId', async (request, response) => {
   response.json({ data: { id: String(updated._id) } });
 });
 
-router.delete('/:id/sources/:sourceId', async (request, response) => {
+router.delete('/:id/sources/:sourceId', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const requirementId = objectId(request.params['id'], 'requirement id');
   const requirement = await getVisibleRequirement(requirementId, actor);
@@ -589,7 +635,7 @@ router.delete('/:id/sources/:sourceId', async (request, response) => {
   response.status(204).end();
 });
 
-router.delete('/:id/group', async (request, response) => {
+router.delete('/:id/group', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const id = objectId(request.params['id'], 'requirement id');
   const requirement = await getVisibleRequirement(id, actor);
@@ -598,7 +644,7 @@ router.delete('/:id/group', async (request, response) => {
   response.status(204).end();
 });
 
-router.delete('/:id', async (request, response) => {
+router.delete('/:id', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const id = objectId(request.params['id'], 'requirement id');
   const current = await getVisibleRequirement(id, actor);

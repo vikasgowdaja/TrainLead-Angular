@@ -1,0 +1,40 @@
+<main class="app-shell auth-page admin-page">
+  <section class="auth-card wide-card" aria-labelledby="skills-title">
+    <a class="back-link" routerLink="/">&larr; Back to requirements</a>
+    <p class="eyebrow">TRAINING MARKETPLACE <span>/</span> SKILLS</p>
+    <h1 id="skills-title">Skill catalog</h1>
+    <p class="auth-subtitle">Aliases share one canonical skill, so “Angular JS” and “AngularJS” match together.</p>
+    @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
+    @if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p> }
+
+    <section class="skill-suggestion" aria-label="Suggest a skill">
+      <h2>Suggest a skill</h2>
+      <label class="field"><span>Skill name</span><input [ngModel]="name()" (ngModelChange)="name.set($event)" /></label>
+      <label class="field"><span>Domain</span><input [ngModel]="domain()" (ngModelChange)="domain.set($event)" /></label>
+      <label class="field"><span>Aliases, comma separated</span><input [ngModel]="aliases()" (ngModelChange)="aliases.set($event)" /></label>
+      <button class="secondary-button" type="button" [disabled]="saving() || !name().trim()" (click)="suggest()">{{ saving() ? 'Saving…' : 'Save suggestion' }}</button>
+    </section>
+
+    <label class="field skill-search"><span>Search skills</span><input type="search" [ngModel]="query()" (ngModelChange)="query.set($event); load()" /></label>
+    @if (loading()) { <p class="auth-subtitle">Loading skills…</p> }
+    @else if (skills().length === 0) { <p class="empty-state">No matching skills.</p> }
+    @else {
+      @for (skill of skills(); track skill.id) {
+        <article class="skill-row">
+          <div class="skill-row-heading"><strong>{{ skill.name }}</strong><span class="role-pill">{{ skill.verified ? 'Verified' : 'Suggested' }}</span></div>
+          @if (auth.hasRole('Admin')) {
+            <div class="skill-edit-grid">
+              <label class="field"><span>Name</span><input [ngModel]="edits()[skill.id]?.name" (ngModelChange)="setEdit(skill.id, 'name', $event)" /></label>
+              <label class="field"><span>Domain</span><input [ngModel]="edits()[skill.id]?.domain" (ngModelChange)="setEdit(skill.id, 'domain', $event)" /></label>
+              <label class="field"><span>Aliases</span><input [ngModel]="edits()[skill.id]?.aliases" (ngModelChange)="setEdit(skill.id, 'aliases', $event)" /></label>
+              <label class="filter-check"><input type="checkbox" [ngModel]="edits()[skill.id]?.verified" (ngModelChange)="setEdit(skill.id, 'verified', $event)" /> Verified</label>
+              <button class="secondary-button" type="button" (click)="save(skill)">Save</button>
+            </div>
+          } @else {
+            <p>{{ skill.domain || 'Domain not set' }} · {{ skill.aliases.length ? skill.aliases.join(', ') : 'No aliases' }}</p>
+          }
+        </article>
+      }
+    }
+  </section>
+</main>

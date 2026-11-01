@@ -22,7 +22,22 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/admin-users/admin-users').then((m) => m.AdminUsersPage),
   },
   {
+    path: 'admin/organizations',
+    canActivate: [roleGuard('Admin')],
+    loadComponent: () => import('./pages/admin-organizations/admin-organizations').then((m) => m.AdminOrganizationsPage),
+  },
+  {
+    path: 'skills',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/skills/skills').then((m) => m.SkillsPage),
+  },
+  {
     path: 'organization/new',
+    canActivate: [roleGuard('Vendor', 'Admin')],
+    loadComponent: () => import('./pages/organization-form/organization-form').then((m) => m.OrganizationFormPage),
+  },
+  {
+    path: 'organization',
     canActivate: [roleGuard('Vendor', 'Admin')],
     loadComponent: () => import('./pages/organization-form/organization-form').then((m) => m.OrganizationFormPage),
   },

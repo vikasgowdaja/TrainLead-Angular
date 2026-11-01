@@ -26,7 +26,7 @@ router.get('/', async (request, response) => {
   const filtered = query
     ? skills.filter((skill) => [skill.name, ...skill.aliasKeys].some((value) => value.includes(skillKey(query))))
     : skills;
-  response.json({ data: filtered.map((skill) => ({ id: skill.key, name: skill.name, domain: '', aliases: skill.aliasKeys, verified: false })) });
+  response.json({ data: filtered.map(({ id, name, domain, aliases, verified }) => ({ id, name, domain, aliases, verified })) });
 });
 
 router.post('/', async (request, response) => {
@@ -40,7 +40,19 @@ router.post('/', async (request, response) => {
     response.status(200).json({ data: skillView(existing), existing: true });
     return;
   }
-  const skill = await Skill.create({ name: input.name, key, domain: input.domain, aliases: input.aliases, aliasKeys, verified: false, createdBy: actor.userId });
+  let skill;
+  try {
+    skill = await Skill.create({ name: input.name, key, domain: input.domain, aliases: input.aliases, aliasKeys, verified: false, createdBy: actor.userId });
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && (error as { code?: number }).code === 11000) {
+      const duplicate = await Skill.findOne({ key });
+      if (duplicate) {
+        response.status(200).json({ data: skillView(duplicate), existing: true });
+        return;
+      }
+    }
+    throw error;
+  }
   response.status(201).json({ data: skillView(skill), existing: false });
 });
 
@@ -51,14 +63,24 @@ router.put('/:id', async (request, response) => {
   const input = parseBody(SkillUpdateSchema, request.body, 'skill');
   const current = await Skill.findById(id);
   if (!current) throw notFound('Skill');
+  const nextName = input.name ?? current.name;
+  const nextKey = skillKey(nextName);
+  const nextAliasKeys = input.aliases !== undefined
+    ? [...new Set(input.aliases.map(skillKey).filter((key) => key && key !== nextKey))]
+    : current.aliasKeys;
+  const collision = await Skill.findOne({
+    _id: { $ne: id },
+    $or: [{ key: { $in: [nextKey, ...nextAliasKeys] } }, { aliasKeys: { $in: [nextKey, ...nextAliasKeys] } }],
+  } as never);
+  if (collision) throw new HttpError(409, 'That skill name or alias is already in use');
   if (input.name) {
-    current.name = input.name;
-    current.key = skillKey(input.name);
+    current.name = nextName;
+    current.key = nextKey;
   }
   if (input.domain !== undefined) current.domain = input.domain;
   if (input.aliases !== undefined) {
     current.aliases = input.aliases;
-    current.aliasKeys = [...new Set(input.aliases.map(skillKey).filter((key) => key && key !== current.key))];
+    current.aliasKeys = nextAliasKeys;
   }
   if (input.verified !== undefined) current.verified = input.verified;
   try {

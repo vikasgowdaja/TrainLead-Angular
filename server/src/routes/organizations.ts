@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { AddMemberSchema, OrganizationInputSchema, VerificationUpdateSchema } from '@trainlead/shared';
-import { requireAuth } from '../auth/middleware.js';
+import { requireAuth, requireRole } from '../auth/middleware.js';
 import { actorOf, loadActor, requireOrganization } from '../auth/actor.js';
 import { withTransaction } from '../database.js';
 import { forbidden, HttpError, notFound, objectId, parseBody } from '../http.js';
@@ -43,6 +43,15 @@ async function getOwnOrganization(actor: ReturnType<typeof actorOf>) {
   if (!organization) throw notFound('Organization');
   return organization;
 }
+
+router.get('/', requireRole('Admin'), async (request, response) => {
+  const search = typeof request.query['q'] === 'string' ? request.query['q'].trim() : '';
+  const filter = search
+    ? { deletedAt: null, $or: [{ legalName: new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }, { brandName: new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }] }
+    : { deletedAt: null };
+  const organizations = await Organization.find(filter as never).sort({ createdAt: -1 }).limit(50).lean();
+  response.json({ data: organizations.map((organization) => presentOrganization(organization as unknown as Record<string, unknown>, null)) });
+});
 
 router.post('/', async (request, response) => {
   const actor = actorOf(request);
@@ -126,6 +135,29 @@ router.get('/me/members', async (request, response) => {
   });
 });
 
+router.patch('/me/members/:userId', async (request, response) => {
+  const actor = actorOf(request);
+  if (!canManageMembers(actor)) throw forbidden('Only an organization owner can change member roles');
+  const organizationId = requireOrganization(actor);
+  const userId = objectId(request.params['userId'], 'user id');
+  const input = parseBody(AddMemberSchema, request.body, 'member');
+  const member = await User.findOneAndUpdate(
+    { _id: userId, organizationId, orgRole: { $ne: 'owner' }, deletedAt: null } as never,
+    { $set: { orgRole: input.orgRole } },
+    { new: true },
+  ).select('name email phone orgRole');
+  if (!member) throw notFound('Organization member');
+  response.json({
+    data: {
+      userId: String(member._id),
+      name: member.name,
+      email: member.email ?? null,
+      phone: member.phone ?? null,
+      orgRole: member.orgRole,
+    },
+  });
+});
+
 router.post('/me/members', async (request, response) => {
   const actor = actorOf(request);
   if (!canManageMembers(actor)) throw forbidden('Only an organization owner can add members');
@@ -163,6 +195,18 @@ router.delete('/me/members/:userId', async (request, response) => {
   );
   if (!removed) throw notFound('Organization member');
   response.status(204).end();
+});
+
+router.patch('/:id/verification', requireRole('Admin'), async (request, response) => {
+  const id = objectId(request.params['id'], 'organization id');
+  const input = parseBody(VerificationUpdateSchema, request.body, 'verification');
+  const updated = await Organization.findOneAndUpdate(
+    { _id: id, deletedAt: null } as never,
+    { $set: input },
+    { new: true, runValidators: true },
+  ).lean();
+  if (!updated) throw notFound('Organization');
+  response.json({ data: presentOrganization(updated as unknown as Record<string, unknown>, null) });
 });
 
 router.get('/:id', async (request, response) => {

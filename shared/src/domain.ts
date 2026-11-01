@@ -97,6 +97,7 @@ export interface RequirementSummary {
 
 export interface SourceView {
   id: string;
+  requirementId: string;
   sourceType: SourceType;
   groupName: string;
   postedAt: string | null;
@@ -104,6 +105,7 @@ export interface SourceView {
   organization: VendorRef;
   /** Null when the viewer may not see the original message (it can contain phone numbers). */
   rawText: string | null;
+  canManage: boolean;
 }
 
 export interface GroupMemberView {

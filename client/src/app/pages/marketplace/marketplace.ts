@@ -3,9 +3,10 @@ import { TitleCasePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { RequirementQuery } from '@trainlead/shared';
-import type { DashboardStats, InboxItemView, RequirementSummary } from '@trainlead/shared/domain';
-import { DELIVERY_MODES, REQUIREMENT_STATUSES, REQUIREMENT_SORTS } from '@trainlead/shared/domain';
-import { Subject, debounceTime, distinctUntilChanged, finalize, forkJoin } from 'rxjs';
+import type { DashboardStats, ExtractedRequirement, InboxItemView, RequirementSummary, SourceType } from '@trainlead/shared/domain';
+import { DELIVERY_MODES, REQUIREMENT_STATUSES, REQUIREMENT_SORTS, SOURCE_TYPES } from '@trainlead/shared/domain';
+import type { RequirementInput } from '@trainlead/shared';
+import { EMPTY, Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { MarketplaceService } from '../../core/marketplace.service';
 import { describeHttpError } from '../../core/http-error';
@@ -33,13 +34,21 @@ export class MarketplacePage {
   protected readonly hasMore = signal(false);
   protected readonly inboxLoading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  protected readonly successMessage = signal<string | null>(null);
   protected readonly inboxError = signal<string | null>(null);
   protected readonly captureText = signal('');
+  protected readonly captureGroup = signal('');
+  protected readonly captureSourceType = signal<SourceType>('WhatsApp');
   protected readonly capturing = signal(false);
+  protected readonly organizationNeeded = signal(false);
+  protected readonly organizationExists = signal(false);
+  protected readonly inboxEdits = signal<Record<string, Partial<ExtractedRequirement>>>({});
   protected readonly statuses = REQUIREMENT_STATUSES;
   protected readonly modes = DELIVERY_MODES;
   protected readonly sorts = REQUIREMENT_SORTS;
+  protected readonly sourceTypes = SOURCE_TYPES;
   private readonly searchChanges = new Subject<string>();
+  private readonly textFilterChanges = new Subject<{ key: 'city' | 'skill'; value: string }>();
   private inboxLoaded = false;
   protected readonly initials = computed(() =>
     (this.auth.currentUser()?.name ?? '')
@@ -56,6 +65,24 @@ export class MarketplacePage {
     this.searchChanges.pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed()).subscribe((q) => {
       this.updateFilters({ q: q || undefined });
     });
+    this.textFilterChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(({ key, value }) => {
+      this.updateFilters({ [key]: value || undefined });
+    });
+    if (this.auth.hasRole('Vendor')) {
+      this.marketplace.getMyOrganization().pipe(
+        catchError((error: unknown) => {
+          if (typeof error === 'object' && error !== null && 'status' in error && error.status === 409) {
+            this.organizationNeeded.set(true);
+            return EMPTY;
+          }
+          this.errorMessage.set(describeHttpError(error));
+          return EMPTY;
+        }),
+        takeUntilDestroyed(),
+      ).subscribe(({ data }) => {
+        if (data) this.organizationExists.set(true);
+      });
+    }
     this.reload();
   }
 
@@ -94,11 +121,15 @@ export class MarketplacePage {
     this.searchChanges.next(value.trim());
   }
 
-  protected setFilter(key: 'city' | 'skill' | 'status' | 'mode' | 'sort', value: string): void {
+  protected setFilter(key: 'vendor' | 'status' | 'mode' | 'sort', value: string): void {
     this.updateFilters({ [key]: value || undefined });
   }
 
-  protected setDateFilter(key: 'startFrom' | 'startTo', value: string): void {
+  protected setTextFilter(key: 'city' | 'skill', value: string): void {
+    this.textFilterChanges.next({ key, value: value.trim() });
+  }
+
+  protected setDateFilter(key: 'startFrom' | 'startTo' | 'endFrom' | 'endTo', value: string): void {
     this.updateFilters({ [key]: value || undefined });
   }
 
@@ -128,12 +159,14 @@ export class MarketplacePage {
     const rawText = this.captureText().trim();
     if (!rawText || this.capturing()) return;
     this.capturing.set(true);
-    this.marketplace.captureInbox({ rawText, sourceType: 'WhatsApp', groupName: '' })
+    this.marketplace.captureInbox({ rawText, sourceType: this.captureSourceType(), groupName: this.captureGroup() })
       .pipe(finalize(() => this.capturing.set(false)))
       .subscribe({
         next: ({ data }) => {
           this.posts.update((posts) => [...data, ...posts]);
           this.captureText.set('');
+          this.captureGroup.set('');
+          this.successMessage.set('Message captured for review.');
           this.refreshStats();
         },
         error: (error: unknown) => this.inboxError.set(describeHttpError(error)),
@@ -143,7 +176,77 @@ export class MarketplacePage {
   protected discardInbox(id: string): void {
     if (!globalThis.confirm('Discard this captured message?')) return;
     this.marketplace.discardInbox(id).subscribe({
-      next: () => { this.posts.update((posts) => posts.filter((post) => post.id !== id)); this.refreshStats(); },
+      next: () => { this.posts.update((posts) => posts.filter((post) => post.id !== id)); this.successMessage.set('Captured message discarded.'); this.refreshStats(); },
+      error: (error: unknown) => this.inboxError.set(describeHttpError(error)),
+    });
+  }
+
+  protected inboxText(post: InboxItemView, key: 'title' | 'city' | 'audience' | 'startDate' | 'endDate'): string {
+    return String(this.inboxEdits()[post.id]?.[key] ?? post.extracted[key] ?? '');
+  }
+
+  protected inboxSkills(post: InboxItemView): string {
+    const skills = this.inboxEdits()[post.id]?.skills ?? post.extracted.skills ?? [];
+    return skills.join(', ');
+  }
+
+  protected inboxDuration(post: InboxItemView): number | null {
+    return this.inboxEdits()[post.id]?.durationDays ?? post.extracted.durationDays ?? null;
+  }
+
+  protected editInboxText(postId: string, key: 'title' | 'city' | 'audience' | 'startDate' | 'endDate', value: string): void {
+    this.inboxEdits.update((edits) => ({ ...edits, [postId]: { ...edits[postId], [key]: value } }));
+  }
+
+  protected editInboxSkills(postId: string, value: string): void {
+    const skills = value.split(',').map((skill) => skill.trim()).filter(Boolean);
+    this.inboxEdits.update((edits) => ({ ...edits, [postId]: { ...edits[postId], skills } }));
+  }
+
+  protected editInboxDuration(postId: string, value: string): void {
+    const durationDays = Number(value);
+    this.inboxEdits.update((edits) => ({ ...edits, [postId]: { ...edits[postId], durationDays: durationDays > 0 ? durationDays : undefined } }));
+  }
+
+  protected saveInboxReview(post: InboxItemView): void {
+    const extracted = this.inboxEdits()[post.id];
+    if (!extracted || Object.keys(extracted).length === 0) return;
+    this.marketplace.updateInbox(post.id, extracted).subscribe({
+      next: ({ data }) => { this.posts.update((posts) => posts.map((current) => current.id === post.id ? data : current)); this.successMessage.set('Review saved.'); },
+      error: (error: unknown) => this.inboxError.set(describeHttpError(error)),
+    });
+  }
+
+  protected retryInbox(post: InboxItemView): void {
+    this.marketplace.retryInbox(post.id).subscribe({
+      next: ({ data }) => { this.posts.update((posts) => posts.map((current) => current.id === post.id ? data : current)); this.successMessage.set('Extraction retried.'); },
+      error: (error: unknown) => this.inboxError.set(describeHttpError(error)),
+    });
+  }
+
+  protected canConvertInbox(post: InboxItemView): boolean {
+    const fields = { ...post.extracted, ...this.inboxEdits()[post.id] };
+    return Boolean(fields.title && fields.skills?.length && fields.city && fields.startDate && fields.endDate && fields.durationDays && fields.audience);
+  }
+
+  protected convertInbox(post: InboxItemView): void {
+    const fields = { ...post.extracted, ...this.inboxEdits()[post.id] };
+    if (!this.canConvertInbox(post)) return;
+    const requirement: RequirementInput = {
+      title: fields.title!, description: fields.description ?? '', domain: '', skills: fields.skills!,
+      city: fields.city!, state: fields.state ?? '', mode: fields.mode ?? 'Offline',
+      startDate: fields.startDate!, endDate: fields.endDate!, durationDays: fields.durationDays!,
+      audience: fields.audience!, studentCount: fields.studentCount ?? null, experienceRequired: '',
+      budgetMin: fields.budgetMin ?? null, budgetMax: fields.budgetMax ?? null,
+      paymentTerms: fields.paymentTerms ?? null, paymentDueDate: fields.paymentDueDate ?? null,
+      travel: fields.travel ?? 'Unknown', food: fields.food ?? 'Unknown', stay: fields.stay ?? 'Unknown',
+    };
+    this.marketplace.convertInbox(post.id, { requirement, publish: true }).subscribe({
+      next: ({ data }) => {
+        this.posts.update((posts) => posts.filter((current) => current.id !== post.id));
+        this.refreshStats();
+        void this.router.navigate(['/requirements', data.id]);
+      },
       error: (error: unknown) => this.inboxError.set(describeHttpError(error)),
     });
   }

@@ -4,6 +4,7 @@
     @if (loading()) { <div class="requirement-skeleton" aria-hidden="true"></div> }
     @else if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p><button class="secondary-button" type="button" (click)="load()">Retry</button> }
     @else if (requirement(); as item) {
+      @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
       <p class="eyebrow">{{ item.organization.name }} <span>/</span> {{ item.status }}</p>
       <h1 id="requirement-title">{{ item.title }}</h1>
       <p class="auth-subtitle">{{ item.description || 'No description provided.' }}</p>
@@ -11,6 +12,7 @@
         @if (item.canManage) {
           <button class="secondary-button" type="button" (click)="edit()">Edit</button>
           <button class="secondary-button" type="button" (click)="duplicate()">Duplicate</button>
+          @if (item.groupId) { <button class="secondary-button" type="button" (click)="ungroup()">Ungroup</button> }
           @for (status of item.allowedStatuses; track status) { <button class="secondary-button" type="button" [disabled]="saving()" (click)="changeStatus(status)">{{ status }}</button> }
           <button class="danger-button" type="button" [disabled]="saving()" (click)="remove()">Delete</button>
         }
@@ -36,9 +38,23 @@
         @if (item.organizationDetail.contact; as contact) { <p>{{ contact.name }} · {{ contact.email ?? contact.phone }}</p> }
       </section>
       <section class="detail-section"><h2>Sources <span class="count-mark">{{ item.sourceCount }}</span></h2>
+        @if (item.canManage) {
+          <div class="source-create">
+            <label class="field"><span>Source type</span><select [value]="sourceType()" (change)="sourceType.set($any($event.target).value)">@for (type of sourceTypes; track type) { <option [value]="type">{{ type }}</option> }</select></label>
+            <label class="field"><span>Group name</span><input [value]="sourceGroup()" (input)="sourceGroup.set($any($event.target).value)" /></label>
+            <label class="field"><span>Original message</span><textarea rows="2" [value]="sourceText()" (input)="sourceText.set($any($event.target).value)"></textarea></label>
+            <button class="secondary-button" type="button" [disabled]="savingSource()" (click)="addSource()">{{ savingSource() ? 'Saving…' : 'Add source post' }}</button>
+          </div>
+        }
         @for (source of item.sources; track source.id) {
           <article class="source-detail"><strong>{{ source.organization.name }}</strong><span>{{ source.sourceType }} · {{ source.groupName || 'No group' }}</span><time>{{ source.importedAt | date: 'medium' }}</time>
             @if (source.rawText) { <p>{{ source.rawText }}</p> }
+            @if (source.canManage) {
+              <div class="source-actions">
+                <label class="field"><span>Edit group name</span><input [value]="source.groupName" (change)="updateSourceGroup(source, $any($event.target).value)" /></label>
+                <button class="danger-button" type="button" (click)="removeSource(source)">Remove source</button>
+              </div>
+            }
           </article>
         } @empty { <p class="auth-subtitle">No source messages recorded.</p> }
       </section>

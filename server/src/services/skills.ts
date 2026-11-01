@@ -9,9 +9,13 @@ export interface ResolvedSkills {
 }
 
 export interface SkillCatalogEntry {
+  id: string;
   name: string;
   key: string;
+  domain: string;
+  aliases: string[];
   aliasKeys: string[];
+  verified: boolean;
 }
 
 /** Maps names (including aliases such as "Angular JS") to canonical skills, creating unknown ones as unverified. */
@@ -53,5 +57,14 @@ export async function canonicalSkillKey(name: string): Promise<string> {
 }
 
 export async function loadSkillCatalog(): Promise<SkillCatalogEntry[]> {
-  return Skill.find().select('name key aliasKeys').lean();
+  const skills = await Skill.find().select('name key domain aliases aliasKeys verified').sort({ name: 1 }).lean();
+  return skills.map((skill) => ({
+    id: String(skill['_id']),
+    name: String(skill['name']),
+    key: String(skill['key']),
+    domain: String(skill['domain'] ?? ''),
+    aliases: (skill['aliases'] as string[] | undefined) ?? [],
+    aliasKeys: (skill['aliasKeys'] as string[] | undefined) ?? [],
+    verified: Boolean(skill['verified']),
+  }));
 }

@@ -154,6 +154,8 @@ export const RequirementQuerySchema = z.object({
   vendor: z.string().regex(/^[a-f0-9]{24}$/i).optional(),
   startFrom: IsoDate.optional(),
   startTo: IsoDate.optional(),
+  endFrom: IsoDate.optional(),
+  endTo: IsoDate.optional(),
   status: RequirementStatusSchema.optional(),
   mode: DeliveryModeSchema.optional(),
   repeated: booleanParam,

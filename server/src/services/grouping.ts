@@ -9,6 +9,15 @@ function normalizeCity(city: string): string {
   return city.normalize('NFKC').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function normalizeAudience(audience: string): string {
+  return audience
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\bsemester\b/g, 'sem')
+    .replace(/\bengineering\b/g, 'engg')
+    .replace(/[^a-z0-9]/g, '');
+}
+
 export function computeMatchKey(city: string, startDate: string | Date, endDate: string | Date): string {
   const day = (value: string | Date) => (typeof value === 'string' ? value : value.toISOString().slice(0, 10));
   return `${normalizeCity(city)}|${day(startDate)}|${day(endDate)}`;
@@ -48,24 +57,34 @@ export async function autoGroup(requirementId: Types.ObjectId, session?: ClientS
       autoGroupOptOut: false,
       ...groupable,
     } as never,
-  ).select('_id groupId').lean<{ _id: Types.ObjectId; groupId: Types.ObjectId | null }[]>();
-  const matches = await (session ? matchesQuery.session(session) : matchesQuery);
+  ).select('_id groupId audience').lean<{ _id: Types.ObjectId; groupId: Types.ObjectId | null; audience: string }[]>();
+  const foundMatches = await (session ? matchesQuery.session(session) : matchesQuery);
+  const matches = foundMatches.filter((match) => normalizeAudience(match.audience) === normalizeAudience(requirement.audience));
   if (matches.length === 0) {
     return;
   }
 
-  let groupId = matches.find((match) => match.groupId)?.groupId ?? null;
+  const existingGroupIds = [...new Map(matches.flatMap((match) => match.groupId ? [[String(match.groupId), match.groupId] as const] : [])).values()];
+  let groupId = existingGroupIds[0] ?? null;
   if (!groupId) {
     const group = new RequirementGroup({ reason: 'auto' });
     await group.save({ session });
     groupId = group._id;
   }
-  const ungrouped = matches.filter((match) => !match.groupId).map((match) => match._id);
+  const memberIds = [requirement._id, ...matches.map((match) => match._id)];
+  const obsoleteGroupIds = existingGroupIds.filter((id) => !id.equals(groupId));
+  const memberFilter = obsoleteGroupIds.length
+    ? { $or: [{ _id: { $in: memberIds } }, { groupId: { $in: obsoleteGroupIds } }] }
+    : { _id: { $in: memberIds } };
   const updateQuery = Requirement.updateMany(
-    { _id: { $in: [requirement._id, ...ungrouped] } } as never,
+    memberFilter as never,
     { $set: { groupId } },
   );
   await (session ? updateQuery.session(session) : updateQuery);
+  if (obsoleteGroupIds.length) {
+    const deleteQuery = RequirementGroup.deleteMany({ _id: { $in: obsoleteGroupIds } } as never);
+    await (session ? deleteQuery.session(session) : deleteQuery);
+  }
 }
 
 export async function groupManually(
