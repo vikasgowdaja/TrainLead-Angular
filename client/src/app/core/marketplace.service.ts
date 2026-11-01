@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type { InboxCaptureInput, OrganizationInput, RequirementInput, RequirementQuery, SourceInput } from '@trainlead/shared';
+import type { InboxCaptureInput, OrganizationInput, RequirementInput, RequirementQuery, SmartExtractionRequest, SourceInput } from '@trainlead/shared';
 import type {
   DashboardStats,
   AdminAnalytics,
@@ -15,6 +15,7 @@ import type {
   SourceType,
   VerificationStatus,
   SkillView,
+  SmartExtractionResult,
 } from '@trainlead/shared/domain';
 import { Observable } from 'rxjs';
 
@@ -100,6 +101,16 @@ export class MarketplaceService {
 
   getRequirement(id: string): Observable<{ data: RequirementDetail }> {
     return this.http.get<{ data: RequirementDetail }>(`/api/requirements/${id}`);
+  }
+
+  extractRequirement(input: SmartExtractionRequest): Observable<{ data: SmartExtractionResult }> {
+    return this.http.post<{ data: SmartExtractionResult }>('/api/requirements/extract', input);
+  }
+
+  extractRequirementImage(file: File): Observable<{ data: SmartExtractionResult }> {
+    const body = new FormData();
+    body.append('file', file);
+    return this.http.post<{ data: SmartExtractionResult }>('/api/requirements/extract-image', body);
   }
 
   createRequirement(input: { requirement: RequirementInput; publish: boolean; source?: SourceInput }): Observable<{ data: RequirementDetail }> {

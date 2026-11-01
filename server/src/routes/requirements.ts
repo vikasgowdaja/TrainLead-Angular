@@ -1,9 +1,12 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
+import { rateLimit } from 'express-rate-limit';
+import multer, { type FileFilterCallback } from 'multer';
 import {
   CreateRequirementSchema,
   GroupRequirementsSchema,
   RequirementInputSchema,
   RequirementQuerySchema,
+  SmartExtractionRequestSchema,
   SourceInputSchema,
   SourceUpdateSchema,
   StatusChangeSchema,
@@ -28,10 +31,42 @@ import { InboxItem } from '../models/inbox-item.js';
 import { canManageRequirement, visibilityFilter } from '../services/access.js';
 import { autoGroup, computeMatchKey, findSimilar, groupManually, refreshGroup, ungroup } from '../services/grouping.js';
 import { canonicalSkillKey, resolveSkills } from '../services/skills.js';
+import { extractRequirement, extractRequirementImage } from '../services/requirement-extraction.js';
 import { withTransaction } from '../database.js';
 
 const router = Router();
 router.use(requireAuth);
+const extractionLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 12, standardHeaders: 'draft-8', legacyHeaders: false });
+const acceptedImageTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter(_request, file, callback: FileFilterCallback) {
+    if (!acceptedImageTypes.has(file.mimetype)) {
+      callback(new HttpError(415, 'Upload a PNG, JPG, or WebP image. PDF files are not supported.'));
+      return;
+    }
+    callback(null, true);
+  },
+});
+
+const parseImageUpload: RequestHandler = (request, response, next) => {
+  imageUpload.single('file')(request, response, (error: unknown) => {
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      next(new HttpError(413, 'Image must be 5 MB or smaller.'));
+      return;
+    }
+    next(error);
+  });
+};
+
+function hasExpectedImageSignature(file: Express.Multer.File): boolean {
+  const buffer = file.buffer;
+  if (file.mimetype === 'image/png') return buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (file.mimetype === 'image/jpeg') return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (file.mimetype === 'image/webp') return buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+  return false;
+}
 
 interface RequirementRecord {
   _id: Types.ObjectId;
@@ -344,6 +379,18 @@ async function requirementDetail(requirement: RequirementRecord, actor: ReturnTy
     allowedStatuses: canManage ? managementStatus(requirement.status) : [],
   };
 }
+
+router.post('/extract', extractionLimiter, requireRole('Admin', 'Vendor'), async (request, response) => {
+  const input = parseBody(SmartExtractionRequestSchema, request.body, 'extraction input');
+  response.json({ data: extractRequirement(input.input, input.inputType) });
+});
+
+router.post('/extract-image', extractionLimiter, requireRole('Admin', 'Vendor'), parseImageUpload, async (request, response) => {
+  const file = request.file;
+  if (!file) throw new HttpError(400, 'Choose an image before extracting.');
+  if (!hasExpectedImageSignature(file)) throw new HttpError(415, 'The uploaded file content does not match a PNG, JPG, or WebP image.');
+  response.json({ data: await extractRequirementImage(file.buffer) });
+});
 
 router.get('/stats', loadActor, async (request, response) => {
   const actor = actorOf(request);

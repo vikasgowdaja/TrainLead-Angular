@@ -124,10 +124,15 @@ function checkRequirementRules(
 
 export const RequirementInputSchema = RequirementFieldsSchema.superRefine(checkRequirementRules);
 
+export const SmartExtractionRequestSchema = z.object({
+  input: text(20000).min(5, 'Add requirement details before extraction.'),
+  inputType: z.enum(['text', 'table']).default('text'),
+});
+
 const SourceFieldsSchema = z.object({
   sourceType: z.enum(SOURCE_TYPES).default('Manual'),
   groupName: text(120).default(''),
-  rawText: text(8000).default(''),
+  rawText: text(20000).default(''),
   postedAt: z.iso.datetime({ offset: true }).or(IsoDate).nullable().default(null),
 });
 
@@ -213,6 +218,7 @@ export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type OrganizationInput = z.infer<typeof OrganizationInputSchema>;
 export type RequirementInput = z.infer<typeof RequirementInputSchema>;
+export type SmartExtractionRequest = z.input<typeof SmartExtractionRequestSchema>;
 export type SourceInput = z.infer<typeof SourceInputSchema>;
 export type CreateRequirementInput = z.input<typeof CreateRequirementSchema>;
 export type RequirementQuery = z.infer<typeof RequirementQuerySchema>;

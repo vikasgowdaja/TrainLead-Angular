@@ -201,6 +201,7 @@ export interface SkillView {
 export interface ExtractedRequirement {
   title?: string | null;
   description?: string | null;
+  domain?: string | null;
   skills?: string[];
   city?: string | null;
   state?: string | null;
@@ -210,6 +211,7 @@ export interface ExtractedRequirement {
   durationDays?: number | null;
   audience?: string | null;
   studentCount?: number | null;
+  experienceRequired?: string | null;
   budgetMin?: number | null;
   budgetMax?: number | null;
   paymentTerms?: string | null;
@@ -217,6 +219,23 @@ export interface ExtractedRequirement {
   travel?: SupportStatus | null;
   food?: SupportStatus | null;
   stay?: SupportStatus | null;
+}
+
+export type ExtractionConfidence = 'high' | 'medium' | 'low';
+
+export interface SmartExtractionResult {
+  extracted: ExtractedRequirement;
+  sourceDetails: {
+    organizationName: string | null;
+    contactPerson: string | null;
+    phone: string | null;
+    email: string | null;
+  };
+  extractedText: string;
+  missingFields: string[];
+  warnings: string[];
+  confidence: Record<string, ExtractionConfidence>;
+  estimatedTotalBudget: number | null;
 }
 
 export interface InboxItemView {

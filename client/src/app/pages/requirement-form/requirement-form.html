@@ -3,7 +3,62 @@
     <a class="back-link" routerLink="/">&larr; Back to requirements</a>
     <p class="eyebrow">VENDOR WORKSPACE <span>/</span> REQUIREMENT</p>
     <h1 id="requirement-title">{{ id ? 'Edit requirement' : 'New requirement' }}</h1>
+
+    @if (!id) {
+      <div class="import-mode-switch" role="group" aria-label="Requirement creation mode">
+        <button type="button" [class.is-active]="editorMode() === 'manual'" (click)="setEditorMode('manual')">Create manually</button>
+        <button type="button" [class.is-active]="editorMode() === 'smart'" (click)="setEditorMode('smart')">Create using Smart Import</button>
+      </div>
+    }
+
+    @if (!id && editorMode() === 'smart') {
+      <section class="smart-import-panel" aria-labelledby="smart-import-title">
+        <div class="smart-import-heading"><div><p class="eyebrow">VENDOR WORKSPACE <span>/</span> SMART IMPORT</p><h2 id="smart-import-title">Import requirement details</h2></div><span class="role-pill">Local extraction</span></div>
+        <p class="auth-subtitle">Paste a message or table, or upload a WhatsApp screenshot. Extraction only pre-fills the form; you review and choose when to save.</p>
+
+        <div class="smart-import-tabs" role="tablist" aria-label="Import input type">
+          <button type="button" role="tab" [attr.aria-selected]="smartInputMode() === 'text'" [class.is-active]="smartInputMode() === 'text'" (click)="setSmartInputMode('text')"><span class="material-symbols-outlined" aria-hidden="true">chat</span>Text</button>
+          <button type="button" role="tab" [attr.aria-selected]="smartInputMode() === 'image'" [class.is-active]="smartInputMode() === 'image'" (click)="setSmartInputMode('image')"><span class="material-symbols-outlined" aria-hidden="true">image</span>Image</button>
+          <button type="button" role="tab" [attr.aria-selected]="smartInputMode() === 'table'" [class.is-active]="smartInputMode() === 'table'" (click)="setSmartInputMode('table')"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span>CSV / TSV</button>
+        </div>
+
+        @if (smartInputMode() === 'image') {
+          <div class="smart-drop-zone" (dragover)="allowImageDrop($event)" (drop)="onImageDrop($event)">
+            @if (smartImagePreview(); as preview) {
+              <img class="smart-image-preview" [src]="preview" [alt]="smartImage()?.name ?? 'Requirement screenshot preview'" />
+              <div class="smart-file-actions"><span>{{ smartImage()?.name }}</span><button class="secondary-button" type="button" (click)="clearImage()">Remove image</button></div>
+            } @else {
+              <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>
+              <strong>Drop a screenshot here</strong>
+              <span>PNG, JPG, or WebP · up to 5 MB</span>
+            }
+            <label class="secondary-button smart-browse">Browse image<input type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" (change)="onImageSelected($event)" /></label>
+          </div>
+        } @else {
+          <label class="field smart-input-field"><span>{{ smartInputMode() === 'table' ? 'Paste CSV or tab-separated data' : 'Paste message or email text' }}</span>
+            <textarea rows="8" [value]="smartInput()" (input)="smartInput.set($any($event.target).value)" [placeholder]="smartInputMode() === 'table' ? 'Title,Subject,Location,Start Date,End Date,Duration,Daily Budget,Payment Date\nAngularJS Training,AngularJS,Mysuru,02-11-2026,07-11-2026,6,4000,25-11-2026' : 'Paste your requirement details here. You can paste WhatsApp messages, emails, or any plain text containing training requirements.'"></textarea>
+          </label>
+        }
+
+        @if (extractionError(); as message) { <p class="form-error" role="alert">{{ message }}</p> }
+        <button class="primary-button smart-extract-button" type="button" [disabled]="extracting()" (click)="extractSmartImport()"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>{{ extracting() ? 'Extracting…' : extraction() ? 'Reprocess input' : 'Extract requirement' }}</button>
+      </section>
+    }
+
     @if (loading()) { <p class="auth-subtitle">Loading requirement…</p> } @else {
+      @if (extraction(); as result) {
+        <section class="extraction-review" aria-labelledby="extraction-review-title">
+          <div class="extraction-review-heading"><div><p class="eyebrow">EXTRACTION REVIEW</p><h2 id="extraction-review-title">Review before saving</h2></div><span>{{ extractedFieldCount(result) }} fields found</span></div>
+          @if (confidenceEntries(result).length) { <div class="confidence-list" aria-label="Extraction confidence">@for (item of confidenceEntries(result); track item.field) { <span [class]="'confidence-mark confidence-' + item.level">{{ item.field }} · {{ item.level }}</span> }</div> }
+          @if (result.estimatedTotalBudget !== null) { <p class="estimated-budget">Estimated total training fee: <strong>{{ result.estimatedTotalBudget | currency:'INR':'symbol':'1.0-0' }}</strong> <span>calculated from daily rate × duration; not saved as a separate field</span></p> }
+          @if (result.sourceDetails.organizationName || result.sourceDetails.contactPerson || result.sourceDetails.phone || result.sourceDetails.email) {
+            <div class="source-contact-summary"><strong>Contact details found in source</strong><span>{{ result.sourceDetails.organizationName ?? 'Organization not stated' }}</span><span>{{ result.sourceDetails.contactPerson ?? 'Contact person not stated' }}</span><span>{{ result.sourceDetails.phone ?? result.sourceDetails.email ?? 'No contact method found' }}</span><small>These do not replace your posting organization or change contact access.</small></div>
+          }
+          @if (result.missingFields.length) { <p class="extraction-warning"><strong>Needs review:</strong> {{ result.missingFields.join(', ') }}</p> }
+          @if (result.warnings.length) { <ul class="extraction-warnings">@for (warning of result.warnings; track warning) { <li>{{ warning }}</li> }</ul> }
+        </section>
+      }
+      @if (id || editorMode() === 'manual' || extraction()) {
       <form [formGroup]="form" (ngSubmit)="save(true)" class="requirement-form" novalidate>
         <label class="field field-wide"><span>Title</span><input formControlName="title" />@if (form.controls.title.touched && form.controls.title.invalid) { <small class="field-error">Enter a title with at least 3 characters.</small> }</label>
         <label class="field field-wide"><span>Description</span><textarea rows="3" formControlName="description"></textarea></label>
@@ -15,7 +70,7 @@
         <label class="field"><span>Start date</span><input type="date" formControlName="startDate" /></label>
         <label class="field"><span>End date</span><input type="date" formControlName="endDate" /></label>
         @if (form.hasError('dateOrder') && form.controls.endDate.touched) { <small class="field-error field-wide">End date must be on or after start date.</small> }
-        <label class="field"><span>Duration in days</span><input type="number" min="1" formControlName="durationDays" /></label>
+        <label class="field"><span>Duration in days <small>(calculated from dates)</small></span><input type="number" min="1" formControlName="durationDays" readonly aria-readonly="true" /></label>
         <label class="field"><span>Target audience</span><input formControlName="audience" placeholder="6th semester engineering students" /></label>
         <label class="field"><span>Number of students</span><input type="number" min="1" formControlName="studentCount" /></label>
         <label class="field"><span>Experience requirements</span><input formControlName="experienceRequired" /></label>
@@ -34,6 +89,7 @@
           <button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Publish requirement' }}</button>
         </div>
       </form>
+      }
     }
   </section>
 </main>

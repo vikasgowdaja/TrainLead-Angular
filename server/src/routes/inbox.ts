@@ -1,69 +1,21 @@
 import { Router } from 'express';
-import { ExtractedRequirementSchema, InboxCaptureSchema, InboxConvertSchema, InboxQuerySchema, InboxUpdateSchema } from '@trainlead/shared';
+import { InboxCaptureSchema, InboxConvertSchema, InboxQuerySchema, InboxUpdateSchema } from '@trainlead/shared';
 import { Types } from 'mongoose';
 import { requireAuth } from '../auth/middleware.js';
 import { actorOf, loadActor, requireOrganization } from '../auth/actor.js';
 import { HttpError, notFound, objectId, parseBody } from '../http.js';
 import { InboxItem } from '../models/inbox-item.js';
 import { RequirementSource } from '../models/requirement-source.js';
+import { extractRequirement } from '../services/requirement-extraction.js';
 import { createRequirementFromInput } from './requirements.js';
+import type { ExtractedRequirement } from '@trainlead/shared/domain';
 
 const router = Router();
 router.use(requireAuth, loadActor);
 
-const monthNumbers: Record<string, number> = {
-  jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3,
-  may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7,
-  sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11,
-};
-
-function mockExtract(rawText: string): { extracted: Record<string, unknown>; missingFields: string[] } {
-  const extracted: Record<string, unknown> = {};
-  const patterns: [RegExp, string][] = [
-    [/angular\s*\.?\s*js/i, 'AngularJS'], [/\breact(?:\.js)?\b/i, 'React'],
-    [/\bnode\s*\.?\s*js\b/i, 'Node.js'], [/\bjavascript\b/i, 'JavaScript'],
-    [/\btypescript\b/i, 'TypeScript'], [/\bexpress(?:\.js)?\b/i, 'Express'],
-    [/\brest\s*apis?\b/i, 'REST APIs'],
-  ];
-  const skills = [...new Set(patterns.filter(([pattern]) => pattern.test(rawText)).map(([, name]) => name))];
-  if (skills.length) extracted['skills'] = skills;
-
-  const dateMatch = rawText.match(/\b(\d{1,2})\s*(?:-|to|–)\s*(\d{1,2})\s*([a-z]{3,9})\b/i);
-  if (dateMatch) {
-    const month = monthNumbers[dateMatch[3]!.toLowerCase()];
-    if (month !== undefined) {
-      const today = new Date();
-      let year = today.getUTCFullYear();
-      const start = new Date(Date.UTC(year, month, Number(dateMatch[1])));
-      if (start < today && month < today.getUTCMonth()) year += 1;
-      const startDate = new Date(Date.UTC(year, month, Number(dateMatch[1])));
-      const endDate = new Date(Date.UTC(year, month, Number(dateMatch[2])));
-      extracted['startDate'] = startDate.toISOString().slice(0, 10);
-      extracted['endDate'] = endDate.toISOString().slice(0, 10);
-      extracted['durationDays'] = Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
-    }
-  }
-  const city = rawText.match(/(?:\b(?:in|at)\s+|,\s*)(Mysuru|Mysore|Bengaluru|Bangalore|Hyderabad|Chennai|Mumbai|Pune|Delhi)\b/i)?.[1];
-  if (city) extracted['city'] = /mysore/i.test(city) ? 'Mysuru' : /bangalore/i.test(city) ? 'Bengaluru' : city;
-  const audience = rawText.match(/\b((?:\d+(?:st|nd|rd|th)\s+sem(?:ester)?|final[- ]year|early[- ]career)[^,.\n]{0,90}(?:students?|engineers?|developers?)?)/i)?.[1];
-  if (audience) extracted['audience'] = audience.trim();
-  const duration = rawText.match(/\b(\d{1,3})\s+days?\b/i);
-  if (duration && !extracted['durationDays']) extracted['durationDays'] = Number(duration[1]);
-  const payment = rawText.match(/\bpayment\s+(?:on|by)?\s*(?:the\s*)?(\d{1,2})\s*([a-z]{3,9})?\b/i);
-  if (payment?.[1] && payment[2]) {
-    const month = monthNumbers[payment[2].toLowerCase()];
-    if (month !== undefined) extracted['paymentDueDate'] = new Date(Date.UTC(new Date().getUTCFullYear(), month, Number(payment[1]))).toISOString().slice(0, 10);
-  }
-  if (/\b(?:tfa|travel|food|stay|accommodation)\s+(?:is\s+)?provided\b/i.test(rawText)) {
-    extracted['travel'] = 'Provided'; extracted['food'] = 'Provided'; extracted['stay'] = 'Provided';
-  }
-  extracted['title'] = `${skills[0] ?? 'Training'} training${extracted['city'] ? ` in ${String(extracted['city'])}` : ''}`;
-  extracted['mode'] = /\bonline\b/i.test(rawText) ? 'Online' : /\bhybrid\b/i.test(rawText) ? 'Hybrid' : 'Offline';
-  const parsed = ExtractedRequirementSchema.safeParse(extracted);
-  const result = parsed.success ? parsed.data : {};
-  const missingFields = ['skills', 'city', 'startDate', 'endDate', 'durationDays', 'audience']
-    .filter((field) => !result[field as keyof typeof result]);
-  return { extracted: result, missingFields };
+function mockExtract(rawText: string): { extracted: ExtractedRequirement; missingFields: string[] } {
+  const result = extractRequirement(rawText, 'text');
+  return { extracted: result.extracted, missingFields: result.missingFields };
 }
 
 function inboxScope(actor: ReturnType<typeof actorOf>) {
