@@ -188,7 +188,7 @@ async function summarize(
     travel: requirement.travel,
     food: requirement.food,
     stay: requirement.stay,
-    paymentDueDate: canManageRequirement(actor, requirement) ? toIsoDate(requirement.paymentDueDate) : null,
+    paymentDueDate: canViewRequirementCommercials(actor, requirement) ? toIsoDate(requirement.paymentDueDate) : null,
     status: requirement.status,
     organization: organization ? toVendorRef(organization) : { id: String(requirement.organizationId), name: 'Organization' },
     groupId: requirement.groupId ? String(requirement.groupId) : null,
