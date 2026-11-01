@@ -15,7 +15,7 @@
         </div>
         @if (item.canManage) {
           <div class="detail-toolbar" aria-label="Requirement actions">
-            <details #actionsMenu class="detail-action-menu">
+            <details #actionsMenu class="detail-action-menu" appClickOutside (appClickOutside)="actionsMenu.open = false">
               <summary class="secondary-button"><span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>Actions<span class="material-symbols-outlined action-menu-chevron" aria-hidden="true">expand_more</span></summary>
               <div class="detail-action-menu-items" aria-label="Requirement actions">
                 <button type="button" (click)="edit(); actionsMenu.open = false">Edit</button>

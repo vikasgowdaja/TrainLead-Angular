@@ -7,10 +7,11 @@ import { EMPTY, catchError, finalize } from 'rxjs';
 import { AuthService } from '../core/auth/auth.service';
 import { describeHttpError } from '../core/http-error';
 import { MarketplaceService } from '../core/marketplace.service';
+import { ClickOutsideDirective } from '../click-outside.directive';
 
 @Component({
   selector: 'app-header',
-  imports: [DatePipe, RouterLink],
+  imports: [ClickOutsideDirective, DatePipe, RouterLink],
   templateUrl: './app-header.html',
 })
 export class AppHeader {

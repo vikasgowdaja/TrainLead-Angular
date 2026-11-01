@@ -5,10 +5,11 @@ import { finalize } from 'rxjs';
 import { describeHttpError } from '../core/http-error';
 import { MarketplaceService } from '../core/marketplace.service';
 import { Requirement } from '../requirement.model';
+import { ClickOutsideDirective } from '../click-outside.directive';
 
 @Component({
   selector: 'app-requirement-card',
-  imports: [RouterLink],
+  imports: [ClickOutsideDirective, RouterLink],
   styleUrl: './requirement-card.scss',
   templateUrl: './requirement-card.html',
 })

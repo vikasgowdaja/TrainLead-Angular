@@ -9,10 +9,11 @@ import { MarketplaceService } from '../../core/marketplace.service';
 import { describeHttpError } from '../../core/http-error';
 import { AuthService } from '../../core/auth/auth.service';
 import { ResumePreview } from '../../resume-preview';
+import { ClickOutsideDirective } from '../../click-outside.directive';
 
 @Component({
   selector: 'app-requirement-detail',
-  imports: [CurrencyPipe, DatePipe, RouterLink, ResumePreview],
+  imports: [ClickOutsideDirective, CurrencyPipe, DatePipe, RouterLink, ResumePreview],
   templateUrl: './requirement-detail.html',
 })
 export class RequirementDetailPage {

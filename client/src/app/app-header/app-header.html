@@ -11,7 +11,7 @@
   <div class="topbar-actions">
     <span class="network-status" role="img" aria-label="Live marketplace" title="Live marketplace"><span></span></span>
     @if (auth.currentUser()?.role === 'Vendor' || auth.currentUser()?.role === 'Trainer') {
-        <div class="notification-wrap">
+        <div class="notification-wrap" appClickOutside (appClickOutside)="closeNotifications()">
           <button class="icon-button notification-toggle" type="button" aria-label="Notifications" title="Notifications" [attr.aria-expanded]="notificationsOpen()" aria-controls="application-notifications" (click)="toggleNotifications()">
             <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
             @if ((auth.currentUser()?.role === 'Vendor' ? pendingApplicationCount() : unreadTrainerNotificationCount()) > 0) { <span class="notification-count">{{ auth.currentUser()?.role === 'Vendor' ? pendingApplicationCount() : unreadTrainerNotificationCount() }}</span> }
@@ -46,7 +46,7 @@
       <span class="material-symbols-outlined" aria-hidden="true">{{ darkMode() ? 'light_mode' : 'dark_mode' }}</span>
     </button>
     @if (auth.currentUser(); as user) {
-      <div class="account-menu-wrap">
+      <div class="account-menu-wrap" appClickOutside (appClickOutside)="closeAccountMenu()">
         <button class="profile-button account-menu-toggle" type="button" aria-haspopup="true" [attr.aria-expanded]="accountMenuOpen()" aria-controls="account-menu" [attr.aria-label]="'Account menu for ' + user.name" (click)="toggleAccountMenu()">
           @if (user.role === 'Trainer' && trainerPhotoUrl(); as photoUrl) { <img class="profile-avatar profile-photo" [src]="photoUrl" alt="" /> } @else { <span class="profile-avatar">{{ initials() }}</span> }
           <span class="profile-name">{{ user.name }}</span><span class="material-symbols-outlined account-menu-caret" aria-hidden="true">expand_more</span>
