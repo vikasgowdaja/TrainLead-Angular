@@ -1,61 +1,64 @@
 import { describe, expect, it } from 'vitest';
-import { RequirementDraftSchema } from './index.js';
+import { CreateRequirementSchema, RequirementInputSchema, RequirementQuerySchema, canTransition, skillKey } from './index.js';
 
-describe('RequirementDraftSchema', () => {
-  it('accepts the Mysuru workshop example and keeps its dates explicit', () => {
-    const requirement = RequirementDraftSchema.parse({
-      technologyStack: ['AngularJS'],
-      startDate: '2026-11-02',
-      endDate: '2026-11-07',
-      durationDays: 6,
-      college: null,
-      city: 'Mysuru',
-      audience: '6th sem engineering students',
-      tfa: 'Provided',
-      paymentDate: '2026-11-25',
-      summary: 'Six-day AngularJS workshop in Mysuru.',
+const mysuru = {
+  title: 'AngularJS foundations for engineering students',
+  skills: ['AngularJS'],
+  city: 'Mysuru',
+  startDate: '2026-11-02',
+  endDate: '2026-11-07',
+  durationDays: 6,
+  audience: '6th sem engineering students',
+  travel: 'Provided',
+  paymentDueDate: '2026-11-25',
+};
+
+describe('RequirementInputSchema', () => {
+  it('accepts the Mysuru workshop and fills safe defaults', () => {
+    expect(RequirementInputSchema.parse(mysuru)).toMatchObject({
+      mode: 'Offline',
+      food: 'Unknown',
+      budgetMin: null,
+      paymentDueDate: '2026-11-25',
     });
-
-    expect(requirement).toMatchObject({
-      technologyStack: ['AngularJS'],
-      startDate: '2026-11-02',
-      endDate: '2026-11-07',
-      durationDays: 6,
-      city: 'Mysuru',
-      audience: '6th sem engineering students',
-      tfa: 'Provided',
-      paymentDate: '2026-11-25',
-      mode: 'Unknown',
-      travel: 'Unknown',
-    });
-  });
-
-  it('rejects a date that is not an ISO calendar date', () => {
-    const result = RequirementDraftSchema.safeParse({
-      technologyStack: ['AngularJS'],
-      startDate: '2 Nov',
-      endDate: '2026-11-07',
-      durationDays: 6,
-      college: null,
-      city: 'Mysuru',
-      audience: '6th sem engineering students',
-      summary: 'Six-day AngularJS workshop in Mysuru.',
-    });
-
-    expect(result.success).toBe(false);
   });
 
   it('rejects an end date before the start date', () => {
-    const result = RequirementDraftSchema.safeParse({
-      technologyStack: ['AngularJS'],
-      startDate: '2026-11-07',
-      endDate: '2026-11-02',
-      durationDays: 6,
-      city: 'Mysuru',
-      audience: '6th sem engineering students',
-      summary: 'Six-day AngularJS workshop in Mysuru.',
-    });
+    expect(RequirementInputSchema.safeParse({ ...mysuru, endDate: '2026-11-01' }).success).toBe(false);
+  });
 
-    expect(result.success).toBe(false);
+  it('rejects an inverted budget range', () => {
+    expect(RequirementInputSchema.safeParse({ ...mysuru, budgetMin: 5000, budgetMax: 1000 }).success).toBe(false);
+  });
+
+  it('requires at least one skill', () => {
+    expect(RequirementInputSchema.safeParse({ ...mysuru, skills: [] }).success).toBe(false);
+  });
+});
+
+describe('CreateRequirementSchema', () => {
+  it('saves as a draft unless publish is requested', () => {
+    expect(CreateRequirementSchema.parse({ requirement: mysuru }).publish).toBe(false);
+  });
+});
+
+describe('RequirementQuerySchema', () => {
+  it('parses query-string booleans and paging', () => {
+    expect(RequirementQuerySchema.parse({ repeated: 'true', page: '2' })).toMatchObject({ repeated: true, page: 2, sort: 'newest' });
+  });
+});
+
+describe('skillKey', () => {
+  it('treats spacing and punctuation variants as one skill', () => {
+    expect(skillKey('Angular JS')).toBe(skillKey('AngularJS'));
+    expect(skillKey('Node.js')).toBe('nodejs');
+  });
+});
+
+describe('canTransition', () => {
+  it('allows pausing and reopening but not reviving a cancelled requirement', () => {
+    expect(canTransition('Open', 'Paused')).toBe(true);
+    expect(canTransition('Paused', 'Open')).toBe(true);
+    expect(canTransition('Cancelled', 'Open')).toBe(false);
   });
 });

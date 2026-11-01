@@ -41,3 +41,43 @@ body {
 
 * { box-sizing: border-box; }
 /* You can add global styles to this file, and also import other style files */
+
+.dashboard-tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 16px 0; }
+.dashboard-tools > input, .dashboard-tools > select, .search-field { min-width: 0; min-height: 42px; padding: 0 11px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; }
+.search-field { display: flex; grid-column: span 2; align-items: center; gap: 7px; }
+.search-field .material-symbols-outlined { color: var(--muted); font-size: 18px; }
+.search-field input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; }
+.date-filter, .filter-check { display: flex; min-height: 40px; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.date-filter input { width: 100%; min-width: 0; min-height: 40px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.filter-check input { width: 18px; height: 18px; accent-color: var(--brand); }
+.create-requirement-button, .load-more-button, .secondary-button, .danger-button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.create-requirement-button { border-color: var(--brand); background: var(--brand); color: #fff; }
+.load-more-button { display: flex; width: 100%; margin-top: 12px; }
+.danger-button { border-color: #bd4d3d; color: #bd4d3d; }
+.state-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 6px; color: var(--ink); }
+.error-banner { border-color: #bd4d3d; color: #a23c30; }
+.error-banner button { min-height: 38px; padding: 0 12px; border: 1px solid currentColor; border-radius: 5px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.empty-state { padding: 32px 18px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); text-align: center; }
+.empty-state h3 { margin: 7px 0; color: var(--ink); font-family: 'Fraunces', Georgia, serif; font-weight: 560; }
+.empty-state p { margin: 0; }
+.requirement-skeleton { height: 190px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 6px; background: linear-gradient(90deg, var(--panel), color-mix(in srgb, var(--brand) 6%, var(--panel)), var(--panel)); background-size: 200% 100%; animation: skeleton-sweep 1.2s ease-in-out infinite; }
+@keyframes skeleton-sweep { to { background-position: -200% 0; } }
+.organization-form, .requirement-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.field-wide { grid-column: 1 / -1; }
+.field textarea, .field select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 400; }
+.field textarea { resize: vertical; }
+.support-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 14px; border: 1px dashed var(--line); border-radius: 6px; }
+.support-fields legend { padding: 0 6px; color: var(--ink); font-size: 13px; font-weight: 600; }
+.form-actions, .detail-toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.detail-toolbar { justify-content: flex-start; margin: 18px 0; }
+.detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 20px 0; }
+.detail-grid > div { min-width: 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.detail-grid dt { color: var(--muted); font-size: 12px; }
+.detail-grid dd { margin: 5px 0 0; color: var(--ink); font-size: 14px; }
+.detail-section { margin: 20px 0; }
+.detail-section h2 { margin: 0 0 10px; font-family: 'Fraunces', Georgia, serif; font-size: 19px; font-weight: 560; }
+.source-detail { display: grid; gap: 5px; padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+.source-detail > span, .source-detail time { color: var(--muted); font-size: 12px; }
+.source-detail p { margin: 4px 0; white-space: pre-wrap; }
+@media (max-width: 760px) { .dashboard-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } .search-field { grid-column: 1 / -1; } .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .organization-form, .requirement-form { grid-template-columns: 1fr; } .field-wide { grid-column: auto; } .support-fields, .dashboard-tools, .detail-grid { grid-template-columns: 1fr; } .search-field { grid-column: auto; } }

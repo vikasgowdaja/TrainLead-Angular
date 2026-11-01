@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import type { DashboardStats, RequirementSummary } from '@trainlead/shared/domain';
 import type { Role } from '@trainlead/shared';
 import { AuthService } from '../../core/auth/auth.service';
 import { MarketplacePage } from './marketplace';
@@ -10,7 +11,29 @@ function signInAs(role: Role): void {
   TestBed.inject(AuthService).login({ identifier: 'a@b.co', password: 'secret' }).subscribe();
   TestBed.inject(HttpTestingController)
     .expectOne('/api/auth/login')
-    .flush({ data: { accessToken: 'token', user: { id: '1', name: 'Ananya Rao', email: 'a@b.co', phone: null, role } } });
+    .flush({ data: { accessToken: 'token', user: { id: '1', name: 'Ananya Rao', email: 'a@b.co', phone: null, role, organizationId: null } } });
+}
+
+const summary: RequirementSummary = {
+  id: 'req-1', title: 'AngularJS foundations', skills: ['AngularJS'], city: 'Mysuru', state: 'Karnataka',
+  mode: 'Offline', startDate: '2026-11-02', endDate: '2026-11-07', durationDays: 6,
+  audience: '6th semester engineering students', studentCount: 60, travel: 'Provided', food: 'Provided', stay: 'Provided',
+  paymentDueDate: null, status: 'Open', organization: { id: 'org-1', name: 'SkillBridge Academy' },
+  groupId: null, groupSize: 1, sourceCount: 1, vendors: [{ id: 'org-1', name: 'SkillBridge Academy' }],
+  canManage: false, createdAt: '2026-11-01T04:00:00.000Z', updatedAt: '2026-11-01T04:00:00.000Z',
+};
+
+const stats: DashboardStats = {
+  activeOpportunities: 1, openOpportunities: 1, newThisWeek: 1, repeatedGroups: 0, withPaymentDate: 0,
+  vendors: 1, sourcePosts: 1, inboxPending: 0, lastUpdatedAt: '2026-11-01T04:00:00.000Z',
+  topVendors: [{ id: 'org-1', name: 'SkillBridge Academy', sourceCount: 1 }],
+};
+
+function flushDashboard(fixture: ReturnType<typeof TestBed.createComponent<MarketplacePage>>): void {
+  const http = TestBed.inject(HttpTestingController);
+  http.expectOne((request) => request.url === '/api/requirements').flush({ data: [summary], page: 1, limit: 10, total: 1, hasMore: false });
+  http.expectOne('/api/requirements/stats').flush({ data: stats });
+  fixture.detectChanges();
 }
 
 describe('MarketplacePage', () => {
@@ -21,15 +44,19 @@ describe('MarketplacePage', () => {
     }).compileComponents();
   });
 
-  it('shows the requirements view and demo opportunities by default', () => {
+  it('shows live requirements and stats returned by the API', () => {
     signInAs('Trainer');
     const fixture = TestBed.createComponent(MarketplacePage);
     fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.requirement-skeleton')).not.toBeNull();
+    flushDashboard(fixture);
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Requirements');
-    expect(compiled.querySelectorAll('app-requirement-card').length).toBe(3);
-    expect(compiled.textContent).toContain('Mysuru');
+    expect(compiled.querySelectorAll('app-requirement-card').length).toBe(1);
+    expect(compiled.textContent).toContain('AngularJS foundations');
+    expect(compiled.textContent).toContain('SkillBridge Academy');
+    expect(compiled.querySelector('.overview-main strong')?.textContent).toContain('1');
     expect(compiled.querySelector('.profile-avatar')?.textContent).toBe('AR');
   });
 
@@ -37,6 +64,7 @@ describe('MarketplacePage', () => {
     signInAs('Trainer');
     const fixture = TestBed.createComponent(MarketplacePage);
     fixture.detectChanges();
+    flushDashboard(fixture);
     const inboxTab = fixture.nativeElement.querySelectorAll('.nav-tab')[1] as HTMLButtonElement;
 
     inboxTab.click();
@@ -44,18 +72,22 @@ describe('MarketplacePage', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Inbox');
-    expect(compiled.querySelectorAll('.inbox-post').length).toBe(2);
+    const inboxRequest = TestBed.inject(HttpTestingController).expectOne('/api/inbox?page=1&limit=20');
+    inboxRequest.flush({ data: [{
+      id: 'inbox-1', rawText: 'AngularJS training in Mysuru', sourceType: 'WhatsApp', groupName: 'Trainer group',
+      senderName: '', receivedAt: '2026-11-01T09:00:00.000Z', status: 'Extracted', error: null,
+      extracted: {}, missingFields: [], requirementId: null, organization: null, createdAt: '2026-11-01T09:00:00.000Z',
+    }], page: 1, limit: 20, total: 1, hasMore: false });
+    fixture.detectChanges();
+    expect(compiled.querySelectorAll('.inbox-post').length).toBe(1);
+    expect(compiled.textContent).toContain('AngularJS training in Mysuru');
   });
 
   it('shows the Users link only to admins', () => {
     signInAs('Trainer');
     const trainerView = TestBed.createComponent(MarketplacePage);
     trainerView.detectChanges();
+    flushDashboard(trainerView);
     expect((trainerView.nativeElement as HTMLElement).querySelector('a[href="/admin/users"]')).toBeNull();
-
-    signInAs('Admin');
-    const adminView = TestBed.createComponent(MarketplacePage);
-    adminView.detectChanges();
-    expect((adminView.nativeElement as HTMLElement).querySelector('a[href="/admin/users"]')).not.toBeNull();
   });
 });

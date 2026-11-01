@@ -1,221 +1,617 @@
 import { Router } from 'express';
-import { CreateOpportunitySchema, RequirementDraftSchema } from '@trainlead/shared';
+import {
+  CreateRequirementSchema,
+  GroupRequirementsSchema,
+  RequirementInputSchema,
+  RequirementQuerySchema,
+  SourceInputSchema,
+  SourceUpdateSchema,
+  StatusChangeSchema,
+  canTransition,
+  type DashboardStats,
+  type GroupMemberView,
+  type OrganizationPublicView,
+  type RequirementDetail,
+  type RequirementSummary,
+  type RequirementStatus,
+  type SourceView,
+  type VendorRef,
+} from '@trainlead/shared';
 import { Types } from 'mongoose';
-import { requireAuth, requireRole } from '../auth/middleware.js';
-import { Opportunity } from '../models/opportunity.js';
-import { Posting } from '../models/posting.js';
-import { createOpportunityKey } from '../requirements/dedupe.js';
+import { requireAuth } from '../auth/middleware.js';
+import { actorOf, loadActor, requireOrganization } from '../auth/actor.js';
+import { HttpError, escapeRegex, notFound, objectId, parseBody, toIsoDate } from '../http.js';
+import { Organization, organizationName } from '../models/organization.js';
+import { Requirement, type RequirementDoc } from '../models/requirement.js';
+import { RequirementSource } from '../models/requirement-source.js';
+import { InboxItem } from '../models/inbox-item.js';
+import { canManageRequirement, visibilityFilter } from '../services/access.js';
+import { autoGroup, computeMatchKey, findSimilar, groupManually, refreshGroup, ungroup } from '../services/grouping.js';
+import { canonicalSkillKey, resolveSkills } from '../services/skills.js';
+import { withTransaction } from '../database.js';
 
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, loadActor);
 
-const publicFields = 'technologyStack startDate endDate durationDays college city mode audience travel food stay tfa summary createdAt';
+interface RequirementRecord {
+  _id: Types.ObjectId;
+  organizationId: Types.ObjectId;
+  title: string;
+  description: string;
+  domain: string;
+  skillIds: Types.ObjectId[];
+  skillNames: string[];
+  skillKeys: string[];
+  city: string;
+  state: string;
+  mode: string;
+  startDate: Date;
+  endDate: Date;
+  durationDays: number;
+  audience: string;
+  studentCount: number | null;
+  experienceRequired: string;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  paymentTerms: string | null;
+  paymentDueDate: Date | null;
+  travel: RequirementSummary['travel'];
+  food: RequirementSummary['food'];
+  stay: RequirementSummary['stay'];
+  status: RequirementStatus;
+  publishedAt: Date | null;
+  groupId: Types.ObjectId | null;
+  deletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-function presentOpportunity(opportunity: Record<string, unknown>, postingCount: number, sources: string[], groups: string[]) {
+interface OrganizationRecord {
+  _id: Types.ObjectId;
+  legalName: string;
+  brandName: string;
+  type: OrganizationPublicView['type'];
+  city: string;
+  state: string;
+  website: string | null;
+  verificationStatus: OrganizationPublicView['verificationStatus'];
+  primaryContactName: string;
+  email: string | null;
+  phone: string | null;
+}
+
+const visibility = (actor: ReturnType<typeof actorOf>) => visibilityFilter(actor);
+const toVendorRef = (org: OrganizationRecord): VendorRef => ({ id: String(org._id), name: organizationName(org) });
+
+function toOrganizationPublic(org: OrganizationRecord): OrganizationPublicView {
   return {
-    id: String(opportunity['_id']),
-    technologyStack: opportunity['technologyStack'],
-    startDate: opportunity['startDate'],
-    endDate: opportunity['endDate'],
-    durationDays: opportunity['durationDays'],
-    college: opportunity['college'],
-    city: opportunity['city'],
-    mode: opportunity['mode'],
-    audience: opportunity['audience'],
-    travel: opportunity['travel'],
-    food: opportunity['food'],
-    stay: opportunity['stay'],
-    tfa: opportunity['tfa'],
-    summary: opportunity['summary'],
-    createdAt: opportunity['createdAt'],
-    postingCount,
-    groupCount: groups.length,
-    sources,
-    groups,
+    id: String(org._id),
+    name: organizationName(org),
+    legalName: org.legalName,
+    type: org.type,
+    city: org.city,
+    state: org.state,
+    website: org.website,
+    verificationStatus: org.verificationStatus,
   };
 }
 
-router.get('/', async (_request, response) => {
-  const opportunities = await Opportunity.find({ deletedAt: null }).select(publicFields).sort({ createdAt: -1 }).lean();
-  const ids = opportunities.map((opportunity) => opportunity['_id']);
-  const postingSummaries = await Posting.aggregate([
-    { $match: { opportunityId: { $in: ids }, deletedAt: null } },
-    {
-      $group: {
-        _id: '$opportunityId',
-        postingCount: { $sum: 1 },
-        sources: { $addToSet: '$sourceName' },
-        groups: { $addToSet: '$groupName' },
-      },
-    },
-  ]);
-  const summaryById = new Map(postingSummaries.map((summary) => [String(summary['_id']), summary]));
-
-  response.json({
-    data: opportunities.map((opportunity) => {
-      const summary = summaryById.get(String(opportunity['_id']));
-      return presentOpportunity(
-        opportunity as Record<string, unknown>,
-        summary?.['postingCount'] ?? 0,
-        summary?.['sources'] ?? [],
-        summary?.['groups'] ?? [],
-      );
-    }),
-  });
-});
-
-router.get('/:id', async (request, response) => {
-  if (!Types.ObjectId.isValid(request.params['id'])) {
-    response.status(400).json({ error: 'Invalid opportunity id' });
-    return;
+async function getVisibleRequirement(id: Types.ObjectId, actor: ReturnType<typeof actorOf>): Promise<RequirementRecord> {
+  const requirement = await Requirement.findOne({ $and: [{ _id: id }, visibility(actor)] } as never).lean();
+  if (!requirement) {
+    throw notFound('Requirement');
   }
+  return requirement as unknown as RequirementRecord;
+}
 
-  const opportunity = await Opportunity.findOne({ _id: request.params['id'], deletedAt: null })
-    .select(publicFields)
+async function getOrganizationMap(ids: Types.ObjectId[]): Promise<Map<string, OrganizationRecord>> {
+  const uniqueIds = [...new Set(ids.map(String))].map((id) => new Types.ObjectId(id));
+  const organizations = await Organization.find({ _id: { $in: uniqueIds }, deletedAt: null } as never)
+    .select('legalName brandName type city state website verificationStatus primaryContactName email phone')
     .lean();
-  if (!opportunity) {
-    response.status(404).json({ error: 'Opportunity not found' });
-    return;
-  }
+  return new Map(organizations.map((org) => [String(org._id), org as unknown as OrganizationRecord]));
+}
 
-  const postings = await Posting.find({ opportunityId: opportunity['_id'], deletedAt: null })
-    .select('sourceName groupName createdAt')
-    .sort({ createdAt: 1 })
-    .lean();
-  const sources = [...new Set(postings.map((posting) => posting['sourceName']))];
-  const groups = [...new Set(postings.map((posting) => posting['groupName']))];
+function managementStatus(status: RequirementStatus): RequirementStatus[] {
+  const map: Record<RequirementStatus, RequirementStatus[]> = {
+    Draft: ['Open', 'Cancelled'],
+    Open: ['Paused', 'Filled', 'Closed', 'Cancelled'],
+    Paused: ['Open', 'Closed', 'Cancelled'],
+    Filled: ['Open', 'Closed'],
+    Closed: [],
+    Cancelled: [],
+  };
+  return map[status];
+}
 
-  response.json({
-    data: {
-      ...presentOpportunity(opportunity as Record<string, unknown>, postings.length, sources, groups),
-      postings: postings.map((posting) => ({
-        sourceName: posting['sourceName'],
-        groupName: posting['groupName'],
-        createdAt: posting['createdAt'],
-      })),
-    },
-  });
-});
-
-router.post('/', requireRole('Admin', 'Vendor'), async (request, response) => {
-  const parsed = CreateOpportunitySchema.safeParse(request.body);
-  if (!parsed.success) {
-    response.status(400).json({ error: 'Invalid opportunity', issues: parsed.error.issues });
-    return;
-  }
-
-  const { requirement, posting } = parsed.data;
-  const dedupeKey = createOpportunityKey(requirement);
-  const opportunity = await Opportunity.findOneAndUpdate(
-    { dedupeKey, deletedAt: null },
-    {
-      $setOnInsert: {
-        dedupeKey,
-        technologyStack: requirement.technologyStack,
-        startDate: requirement.startDate,
-        endDate: requirement.endDate,
-        durationDays: requirement.durationDays,
-        college: requirement.college,
-        city: requirement.city,
-        mode: requirement.mode,
-        audience: requirement.audience,
-        travel: requirement.travel,
-        food: requirement.food,
-        stay: requirement.stay,
-        tfa: requirement.tfa,
-        summary: requirement.summary,
-      },
-    },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
-  ).select(publicFields).lean();
-
-  await Posting.create({
-    opportunityId: opportunity['_id'],
-    createdBy: request.user?.userId,
-    sourceName: posting.sourceName,
-    groupName: posting.groupName,
-    vendorName: requirement.vendorName,
-    vendorCompany: requirement.vendorCompany,
-    vendorPhone: posting.vendorPhone ?? requirement.vendorPhone,
-    rate: posting.rate ?? requirement.rate,
-    paymentDate: posting.paymentDate ?? requirement.paymentDate,
+async function summarize(
+  requirement: RequirementRecord,
+  actor: ReturnType<typeof actorOf>,
+  organizationMap: Map<string, OrganizationRecord>,
+  groupSizeMap: Map<string, number>,
+  groupVendorsMap: Map<string, VendorRef[]>,
+  sourceCountMap: Map<string, number>,
+): Promise<RequirementSummary> {
+  const organization = organizationMap.get(String(requirement.organizationId));
+  const groupKey = requirement.groupId ? String(requirement.groupId) : String(requirement._id);
+  return {
+    id: String(requirement._id),
+    title: requirement.title,
+    skills: requirement.skillNames,
+    city: requirement.city,
+    state: requirement.state,
+    mode: requirement.mode as RequirementSummary['mode'],
+    startDate: toIsoDate(requirement.startDate)!,
+    endDate: toIsoDate(requirement.endDate)!,
+    durationDays: requirement.durationDays,
+    audience: requirement.audience,
+    studentCount: requirement.studentCount,
     travel: requirement.travel,
     food: requirement.food,
     stay: requirement.stay,
-  });
+    paymentDueDate: canManageRequirement(actor, requirement) ? toIsoDate(requirement.paymentDueDate) : null,
+    status: requirement.status,
+    organization: organization ? toVendorRef(organization) : { id: String(requirement.organizationId), name: 'Organization' },
+    groupId: requirement.groupId ? String(requirement.groupId) : null,
+    groupSize: requirement.groupId ? groupSizeMap.get(groupKey) ?? 1 : 1,
+    sourceCount: sourceCountMap.get(String(requirement._id)) ?? 0,
+    vendors: groupVendorsMap.get(groupKey) ?? (organization ? [toVendorRef(organization)] : []),
+    canManage: canManageRequirement(actor, requirement),
+    createdAt: requirement.createdAt.toISOString(),
+    updatedAt: requirement.updatedAt.toISOString(),
+  };
+}
 
-  response.status(201).json({ data: presentOpportunity(opportunity as Record<string, unknown>, 1, [posting.sourceName], [posting.groupName]) });
+async function presentationMaps(requirements: RequirementRecord[], actor: ReturnType<typeof actorOf>) {
+  const requirementIds = requirements.map((item) => item._id);
+  const groupIds = [...new Set(requirements.flatMap((item) => (item.groupId ? [item.groupId] : [])))];
+  const siblings = groupIds.length
+    ? ((await Requirement.find({ groupId: { $in: groupIds }, ...visibility(actor) } as never)
+        .select('_id organizationId groupId')
+        .lean()) as unknown as Pick<RequirementRecord, '_id' | 'organizationId' | 'groupId'>[])
+    : [];
+  const allOrganizations = [...requirements, ...siblings].map((item) => item.organizationId);
+  const organizationMap = await getOrganizationMap(allOrganizations);
+  const groupSizeMap = new Map<string, number>();
+  const groupVendorsMap = new Map<string, VendorRef[]>();
+  for (const member of siblings) {
+    const groupKey = String(member.groupId);
+    groupSizeMap.set(groupKey, (groupSizeMap.get(groupKey) ?? 0) + 1);
+    const organization = organizationMap.get(String(member.organizationId));
+    if (organization) {
+      const vendors = groupVendorsMap.get(groupKey) ?? [];
+      if (!vendors.some((vendor) => vendor.id === String(organization._id))) {
+        vendors.push(toVendorRef(organization));
+      }
+      groupVendorsMap.set(groupKey, vendors);
+    }
+  }
+  const sourceCounts = requirementIds.length
+    ? await RequirementSource.aggregate([
+        { $match: { requirementId: { $in: requirementIds }, deletedAt: null } },
+        { $group: { _id: '$requirementId', count: { $sum: 1 } } },
+      ])
+    : [];
+  const sourceCountMap = new Map(sourceCounts.map((item) => [String(item['_id']), Number(item['count'])]));
+  return { organizationMap, groupSizeMap, groupVendorsMap, sourceCountMap };
+}
+
+async function createRequirement(
+  actor: ReturnType<typeof actorOf>,
+  requirementInput: ReturnType<typeof RequirementInputSchema.parse>,
+  publish: boolean,
+  sourceInput?: ReturnType<typeof SourceInputSchema.parse>,
+  requestedOrganizationId?: string,
+): Promise<RequirementRecord> {
+  if (actor.role !== 'Vendor' && actor.role !== 'Admin') {
+    throw new HttpError(403, 'Only vendors can post requirements');
+  }
+  const organizationId = actor.role === 'Admin' && requestedOrganizationId
+    ? objectId(requestedOrganizationId, 'organization id')
+    : requireOrganization(actor);
+  const organization = await Organization.findOne({ _id: organizationId, deletedAt: null } as never).lean();
+  if (!organization) {
+    throw notFound('Organization');
+  }
+  if (actor.role !== 'Admin' && actor.orgRole !== 'owner' && actor.orgRole !== 'recruiter') {
+    throw new HttpError(403, 'Only organization members can post requirements');
+  }
+
+  const created = await withTransaction(async (session) => {
+    const skills = await resolveSkills(requirementInput.skills, actor.userId, session);
+    const document = new Requirement({
+      ...requirementInput,
+      organizationId,
+      createdBy: actor.userId,
+      skillIds: skills.ids,
+      skillNames: skills.names,
+      skillKeys: skills.keys,
+      status: publish ? 'Open' : 'Draft',
+      publishedAt: publish ? new Date() : null,
+      matchKey: computeMatchKey(requirementInput.city, requirementInput.startDate, requirementInput.endDate),
+    });
+    await document.save({ session });
+    if (sourceInput) {
+      const source = new RequirementSource({
+        requirementId: document._id,
+        organizationId,
+        ...sourceInput,
+        postedAt: sourceInput.postedAt ? new Date(sourceInput.postedAt) : null,
+        createdBy: actor.userId,
+      });
+      await source.save({ session });
+    }
+    if (publish) {
+      await autoGroup(document._id, session);
+    }
+    return document;
+  });
+  return created.toObject() as unknown as RequirementRecord;
+}
+
+async function requirementDetail(requirement: RequirementRecord, actor: ReturnType<typeof actorOf>): Promise<RequirementDetail> {
+  const canManage = canManageRequirement(actor, requirement);
+  const [maps, sourceDocuments, groupDocuments, organizationMap] = await Promise.all([
+    presentationMaps([requirement], actor),
+    RequirementSource.find({ requirementId: requirement._id, deletedAt: null } as never).sort({ createdAt: 1 }).lean(),
+    requirement.groupId
+      ? Requirement.find({ groupId: requirement.groupId, ...visibility(actor) } as never)
+          .select('_id title status organizationId groupId')
+          .lean()
+      : Promise.resolve([]),
+    getOrganizationMap([requirement.organizationId]),
+  ]);
+  const sources: SourceView[] = sourceDocuments.map((source) => {
+    const org = organizationMap.get(String(source['organizationId']));
+    return {
+      id: String(source['_id']),
+      sourceType: source['sourceType'] as SourceView['sourceType'],
+      groupName: String(source['groupName'] ?? ''),
+      postedAt: toIsoDate(source['postedAt'] as Date | null),
+      importedAt: (source['importedAt'] as Date).toISOString(),
+      organization: org ? toVendorRef(org) : { id: String(source['organizationId']), name: 'Organization' },
+      rawText: canManage ? String(source['rawText'] ?? '') : null,
+    };
+  });
+  const groupMembers: GroupMemberView[] = [];
+  for (const member of groupDocuments as unknown as RequirementRecord[]) {
+    const org = organizationMap.get(String(member.organizationId));
+    groupMembers.push({
+      id: String(member._id),
+      title: member.title,
+      status: member.status,
+      organization: org ? toVendorRef(org) : { id: String(member.organizationId), name: 'Organization' },
+    });
+  }
+  const organization = organizationMap.get(String(requirement.organizationId));
+  const summary = await summarize(
+    requirement,
+    actor,
+    maps.organizationMap,
+    maps.groupSizeMap,
+    maps.groupVendorsMap,
+    maps.sourceCountMap,
+  );
+  return {
+    ...summary,
+    description: requirement.description,
+    domain: requirement.domain,
+    experienceRequired: requirement.experienceRequired,
+    budgetMin: canManage ? requirement.budgetMin : null,
+    budgetMax: canManage ? requirement.budgetMax : null,
+    paymentTerms: canManage ? requirement.paymentTerms : null,
+    organizationDetail: organization
+      ? {
+          ...toOrganizationPublic(organization),
+          contact: canManage
+            ? { name: organization.primaryContactName, email: organization.email, phone: organization.phone }
+            : null,
+        }
+      : {
+          id: String(requirement.organizationId),
+          name: 'Organization',
+          legalName: 'Organization',
+          type: 'Individual',
+          city: requirement.city,
+          state: requirement.state,
+          website: null,
+          verificationStatus: 'Pending',
+          contact: null,
+        },
+    sources,
+    groupMembers,
+    allowedStatuses: canManage ? managementStatus(requirement.status) : [],
+  };
+}
+
+router.get('/stats', async (request, response) => {
+  const actor = actorOf(request);
+  const requirements = (await Requirement.find(visibility(actor) as never)
+    .select('_id groupId status paymentDueDate organizationId createdAt updatedAt')
+    .lean()) as unknown as Pick<RequirementRecord, '_id' | 'groupId' | 'status' | 'paymentDueDate' | 'organizationId' | 'createdAt' | 'updatedAt'>[];
+  const requirementIds = requirements.map((item) => item._id);
+  const now = new Date();
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  const opportunityKey = (item: (typeof requirements)[number]) => String(item.groupId ?? item._id);
+  const active = new Set(requirements.filter((item) => item.status === 'Open' || item.status === 'Paused').map(opportunityKey));
+  const open = new Set(requirements.filter((item) => item.status === 'Open').map(opportunityKey));
+  const newThisWeek = new Set(requirements.filter((item) => item.createdAt >= monday).map(opportunityKey));
+  const repeatedGroups = new Set(requirements.flatMap((item) => (item.groupId ? [String(item.groupId)] : [])));
+  const withPaymentDate = new Set(requirements.filter((item) => item.paymentDueDate).map(opportunityKey));
+  const sourcePosts = requirementIds.length
+    ? await RequirementSource.countDocuments({ requirementId: { $in: requirementIds }, deletedAt: null } as never)
+    : 0;
+  const organizationIds = [...new Set(requirements.map((item) => String(item.organizationId)))];
+  const organizations = organizationIds.length
+    ? await Organization.find({ _id: { $in: organizationIds } } as never).select('legalName brandName').lean()
+    : [];
+  const orgById = new Map(organizations.map((org) => [String(org['_id']), organizationName(org as unknown as OrganizationRecord)]));
+  const sourceCounts = requirementIds.length
+    ? await RequirementSource.aggregate([
+        { $match: { requirementId: { $in: requirementIds }, deletedAt: null } },
+        { $group: { _id: '$organizationId', sourceCount: { $sum: 1 } } },
+        { $sort: { sourceCount: -1 } },
+        { $limit: 5 },
+      ])
+    : [];
+  const inboxScope = actor.role === 'Admin'
+    ? { status: { $in: ['Pending', 'Extracted', 'Failed'] } }
+    : { createdBy: actor.userId, status: { $in: ['Pending', 'Extracted', 'Failed'] } };
+  const inboxPending = await InboxItem.countDocuments(inboxScope as never);
+  const stats: DashboardStats = {
+    activeOpportunities: active.size,
+    openOpportunities: open.size,
+    newThisWeek: newThisWeek.size,
+    repeatedGroups: repeatedGroups.size,
+    withPaymentDate: withPaymentDate.size,
+    vendors: organizationIds.length,
+    sourcePosts,
+    inboxPending,
+    lastUpdatedAt: requirements.reduce<string | null>((latest, item) => {
+      const value = item.updatedAt.toISOString();
+      return !latest || value > latest ? value : latest;
+    }, null),
+    topVendors: sourceCounts.map((item) => ({
+      id: String(item['_id']),
+      name: orgById.get(String(item['_id'])) ?? 'Organization',
+      sourceCount: Number(item['sourceCount']),
+    })),
+  };
+  response.json({ data: stats });
 });
 
-// Opportunities are shared by many vendors, so only an Admin may edit or remove them.
-router.put<{ id: string }>('/:id', requireRole('Admin'), async (request, response) => {
-  if (!Types.ObjectId.isValid(request.params['id'])) {
-    response.status(400).json({ error: 'Invalid opportunity id' });
-    return;
+router.get('/', async (request, response) => {
+  const actor = actorOf(request);
+  const query = parseBody(RequirementQuerySchema, request.query, 'query');
+  const clauses: Record<string, unknown>[] = [visibility(actor) as Record<string, unknown>];
+  if (query.status) clauses.push({ status: query.status });
+  if (query.city) clauses.push({ city: { $regex: `^${escapeRegex(query.city)}$`, $options: 'i' } });
+  if (query.vendor) clauses.push({ organizationId: objectId(query.vendor, 'vendor id') });
+  if (query.startFrom || query.startTo) {
+    clauses.push({ startDate: { ...(query.startFrom ? { $gte: new Date(query.startFrom) } : {}), ...(query.startTo ? { $lte: new Date(query.startTo) } : {}) } });
   }
-
-  const parsed = RequirementDraftSchema.safeParse(request.body);
-  if (!parsed.success) {
-    response.status(400).json({ error: 'Invalid opportunity', issues: parsed.error.issues });
-    return;
+  if (query.mode) clauses.push({ mode: query.mode });
+  if (query.repeated !== undefined) clauses.push(query.repeated ? { groupId: { $ne: null } } : { groupId: null });
+  if (query.hasPaymentDate !== undefined) clauses.push(query.hasPaymentDate ? { paymentDueDate: { $ne: null } } : { paymentDueDate: null });
+  if (query.skill) clauses.push({ skillKeys: await canonicalSkillKey(query.skill) });
+  if (query.q) {
+    const pattern = new RegExp(escapeRegex(query.q), 'i');
+    const matchingOrganizations = await Organization.find({
+      deletedAt: null,
+      $or: [{ legalName: pattern }, { brandName: pattern }],
+    } as never).distinct('_id');
+    clauses.push({
+      $or: [
+        { title: pattern },
+        { description: pattern },
+        { skillNames: pattern },
+        { city: pattern },
+        { organizationId: { $in: matchingOrganizations } },
+      ],
+    });
   }
+  const sortBy: Record<typeof query.sort, Record<string, 1 | -1>> = {
+    newest: { createdAt: -1 },
+    oldest: { createdAt: 1 },
+    upcoming: { startDate: 1 },
+    updated: { updatedAt: -1 },
+    start: { startDate: 1 },
+  };
+  const filter = { $and: clauses };
+  const [total, pageRecords] = await Promise.all([
+    Requirement.countDocuments(filter as never),
+    Requirement.find(filter as never)
+      .sort(sortBy[query.sort])
+      .skip((query.page - 1) * query.limit)
+      .limit(query.limit)
+      .lean(),
+  ]);
+  const records = pageRecords as unknown as RequirementRecord[];
+  const maps = await presentationMaps(records, actor);
+  const data = await Promise.all(records.map((record) => summarize(record, actor, maps.organizationMap, maps.groupSizeMap, maps.groupVendorsMap, maps.sourceCountMap)));
+  response.json({ data, page: query.page, limit: query.limit, total, hasMore: query.page * query.limit < total });
+});
 
-  const requirement = parsed.data;
-  const updated = await Opportunity.findOneAndUpdate(
-    { _id: request.params['id'], deletedAt: null },
-    {
-      $set: {
-        technologyStack: requirement.technologyStack,
-        startDate: requirement.startDate,
-        endDate: requirement.endDate,
-        durationDays: requirement.durationDays,
-        college: requirement.college,
-        city: requirement.city,
-        mode: requirement.mode,
-        audience: requirement.audience,
-        travel: requirement.travel,
-        food: requirement.food,
-        stay: requirement.stay,
-        tfa: requirement.tfa,
-        summary: requirement.summary,
+router.post('/', async (request, response) => {
+  const actor = actorOf(request);
+  const payload = parseBody(CreateRequirementSchema, request.body, 'requirement');
+  const record = await createRequirement(actor, payload.requirement, payload.publish, payload.source, payload.organizationId);
+  response.status(201).json({ data: await requirementDetail(record, actor) });
+});
+
+router.post('/groups', async (request, response) => {
+  const actor = actorOf(request);
+  const payload = parseBody(GroupRequirementsSchema, request.body, 'group');
+  const ids = payload.requirementIds.map((id) => objectId(id, 'requirement id'));
+  for (const id of ids) {
+    const requirement = await getVisibleRequirement(id, actor);
+    if (!canManageRequirement(actor, requirement)) throw new HttpError(403, 'You can only group requirements you manage');
+  }
+  const groupId = await withTransaction((session) => groupManually(ids, actor.userId, session));
+  response.status(201).json({ data: { id: String(groupId) } });
+});
+
+router.get('/:id/similar', async (request, response) => {
+  const actor = actorOf(request);
+  const requirement = await getVisibleRequirement(objectId(request.params['id'], 'requirement id'), actor);
+  const similar = await findSimilar(requirement as unknown as RequirementDoc, visibility(actor));
+  response.json({ data: similar.map((item) => ({ id: String(item['_id']), title: item.title, city: item.city, startDate: toIsoDate(item.startDate), skills: item.skillNames })) });
+});
+
+router.get('/:id', async (request, response) => {
+  const actor = actorOf(request);
+  const requirement = await getVisibleRequirement(objectId(request.params['id'], 'requirement id'), actor);
+  response.json({ data: await requirementDetail(requirement, actor) });
+});
+
+router.put('/:id', async (request, response) => {
+  const actor = actorOf(request);
+  const id = objectId(request.params['id'], 'requirement id');
+  const current = await getVisibleRequirement(id, actor);
+  if (!canManageRequirement(actor, current)) throw new HttpError(403, 'Only the posting organization can edit this requirement');
+  const input = parseBody(RequirementInputSchema, request.body, 'requirement');
+  const updated = await withTransaction(async (session) => {
+    const skills = await resolveSkills(input.skills, actor.userId, session);
+    const updateQuery = Requirement.findOneAndUpdate(
+      { _id: id, organizationId: current.organizationId, deletedAt: null } as never,
+      {
+        $set: {
+          ...input,
+          skillIds: skills.ids,
+          skillNames: skills.names,
+          skillKeys: skills.keys,
+          matchKey: computeMatchKey(input.city, input.startDate, input.endDate),
+        },
       },
-    },
-    { new: true, runValidators: true },
-  ).select(publicFields).lean();
-
-  if (!updated) {
-    response.status(404).json({ error: 'Opportunity not found' });
-    return;
-  }
-
-  const postings = await Posting.find({ opportunityId: updated['_id'], deletedAt: null }).select('sourceName groupName').lean();
-  response.json({
-    data: presentOpportunity(
-      updated as Record<string, unknown>,
-      postings.length,
-      [...new Set(postings.map((posting) => posting['sourceName']))],
-      [...new Set(postings.map((posting) => posting['groupName']))],
-    ),
+      { new: true, runValidators: true },
+    );
+    const saved = await (session ? updateQuery.session(session) : updateQuery);
+    if (!saved) throw notFound('Requirement');
+    if (saved.status !== 'Draft') await autoGroup(saved._id, session);
+    return saved.toObject() as unknown as RequirementRecord;
   });
+  response.json({ data: await requirementDetail(updated, actor) });
 });
 
-router.delete<{ id: string }>('/:id', requireRole('Admin'), async (request, response) => {
-  if (!Types.ObjectId.isValid(request.params['id'])) {
-    response.status(400).json({ error: 'Invalid opportunity id' });
-    return;
-  }
+router.patch('/:id/status', async (request, response) => {
+  const actor = actorOf(request);
+  const id = objectId(request.params['id'], 'requirement id');
+  const current = await getVisibleRequirement(id, actor);
+  if (!canManageRequirement(actor, current)) throw new HttpError(403, 'Only the posting organization can change this status');
+  const { status } = parseBody(StatusChangeSchema, request.body, 'status');
+  if (!canTransition(current.status, status)) throw new HttpError(409, `Cannot change status from ${current.status} to ${status}`);
+  const updated = await Requirement.findOneAndUpdate(
+    { _id: id, organizationId: current.organizationId, deletedAt: null } as never,
+    { $set: { status, publishedAt: status === 'Open' ? current.publishedAt ?? new Date() : current.publishedAt } },
+    { new: true, runValidators: true },
+  ).lean();
+  if (!updated) throw notFound('Requirement');
+  if (status !== 'Draft') await autoGroup(id);
+  response.json({ data: await requirementDetail(updated as unknown as RequirementRecord, actor) });
+});
 
-  const deleted = await Opportunity.findOneAndUpdate(
-    { _id: request.params['id'], deletedAt: null },
+router.post('/:id/duplicate', async (request, response) => {
+  const actor = actorOf(request);
+  const current = await getVisibleRequirement(objectId(request.params['id'], 'requirement id'), actor);
+  if (!canManageRequirement(actor, current)) throw new HttpError(403, 'Only the posting organization can duplicate this requirement');
+  const { _id: _id, ...copy } = current;
+  const requirement = {
+    title: `${copy.title} (copy)`,
+    description: copy.description,
+    domain: copy.domain,
+    skills: copy.skillNames,
+    city: copy.city,
+    state: copy.state,
+    mode: copy.mode as 'Offline' | 'Online' | 'Hybrid',
+    startDate: toIsoDate(copy.startDate)!,
+    endDate: toIsoDate(copy.endDate)!,
+    durationDays: copy.durationDays,
+    audience: copy.audience,
+    studentCount: copy.studentCount,
+    experienceRequired: copy.experienceRequired,
+    budgetMin: copy.budgetMin,
+    budgetMax: copy.budgetMax,
+    paymentTerms: copy.paymentTerms,
+    paymentDueDate: toIsoDate(copy.paymentDueDate),
+    travel: copy.travel,
+    food: copy.food,
+    stay: copy.stay,
+  };
+  const parsed = parseBody(RequirementInputSchema, requirement, 'requirement');
+  const duplicate = await createRequirement(actor, parsed, false);
+  response.status(201).json({ data: await requirementDetail(duplicate, actor) });
+});
+
+router.post('/:id/sources', async (request, response) => {
+  const actor = actorOf(request);
+  const id = objectId(request.params['id'], 'requirement id');
+  const requirement = await getVisibleRequirement(id, actor);
+  if (!canManageRequirement(actor, requirement)) throw new HttpError(403, 'Only the posting organization can add sources');
+  const input = parseBody(SourceInputSchema, request.body, 'source');
+  const source = await RequirementSource.create({
+    requirementId: id,
+    organizationId: requirement.organizationId,
+    createdBy: actor.userId,
+    ...input,
+    postedAt: input.postedAt ? new Date(input.postedAt) : null,
+  });
+  response.status(201).json({ data: { id: String(source._id) } });
+});
+
+router.patch('/:id/sources/:sourceId', async (request, response) => {
+  const actor = actorOf(request);
+  const requirementId = objectId(request.params['id'], 'requirement id');
+  const requirement = await getVisibleRequirement(requirementId, actor);
+  if (!canManageRequirement(actor, requirement)) throw new HttpError(403, 'Only the posting organization can edit sources');
+  const sourceId = objectId(request.params['sourceId'], 'source id');
+  const input = parseBody(SourceUpdateSchema, request.body, 'source');
+  const updated = await RequirementSource.findOneAndUpdate(
+    { _id: sourceId, requirementId, deletedAt: null } as never,
+    { $set: { ...input, ...(input.postedAt !== undefined ? { postedAt: input.postedAt ? new Date(input.postedAt) : null } : {}) } },
+    { new: true, runValidators: true },
+  );
+  if (!updated) throw notFound('Source');
+  response.json({ data: { id: String(updated._id) } });
+});
+
+router.delete('/:id/sources/:sourceId', async (request, response) => {
+  const actor = actorOf(request);
+  const requirementId = objectId(request.params['id'], 'requirement id');
+  const requirement = await getVisibleRequirement(requirementId, actor);
+  if (!canManageRequirement(actor, requirement)) throw new HttpError(403, 'Only the posting organization can remove sources');
+  const sourceId = objectId(request.params['sourceId'], 'source id');
+  const removed = await RequirementSource.findOneAndUpdate(
+    { _id: sourceId, requirementId, deletedAt: null } as never,
     { $set: { deletedAt: new Date() } },
   );
-  if (!deleted) {
-    response.status(404).json({ error: 'Opportunity not found' });
-    return;
-  }
-
-  await Posting.updateMany({ opportunityId: deleted['_id'], deletedAt: null }, { $set: { deletedAt: new Date() } });
+  if (!removed) throw notFound('Source');
   response.status(204).end();
 });
 
-export { router as requirementsRouter };
+router.delete('/:id/group', async (request, response) => {
+  const actor = actorOf(request);
+  const id = objectId(request.params['id'], 'requirement id');
+  const requirement = await getVisibleRequirement(id, actor);
+  if (!canManageRequirement(actor, requirement)) throw new HttpError(403, 'Only the posting organization can ungroup this requirement');
+  await withTransaction((session) => ungroup(id, session));
+  response.status(204).end();
+});
+
+router.delete('/:id', async (request, response) => {
+  const actor = actorOf(request);
+  const id = objectId(request.params['id'], 'requirement id');
+  const current = await getVisibleRequirement(id, actor);
+  if (!canManageRequirement(actor, current)) throw new HttpError(403, 'Only the posting organization can delete this requirement');
+  await withTransaction(async (session) => {
+    const updateQuery = Requirement.findOneAndUpdate(
+      { _id: id, organizationId: current.organizationId, deletedAt: null } as never,
+      { $set: { deletedAt: new Date() } },
+    );
+    await (session ? updateQuery.session(session) : updateQuery);
+    await refreshGroup(current.groupId, session);
+  });
+  response.status(204).end();
+});
+
+export { router as requirementsRouter, createRequirement as createRequirementFromInput };

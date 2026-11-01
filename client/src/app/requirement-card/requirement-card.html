@@ -2,10 +2,10 @@
   <div class="card-main">
     <div class="card-heading">
       <div class="card-title-group">
-        <h3>{{ requirement().title }}</h3>
+        <h3><a [routerLink]="['/requirements', requirement().id]">{{ requirement().title }}</a></h3>
         <span class="location"><span class="material-symbols-outlined" aria-hidden="true">location_on</span>{{ requirement().city }}</span>
       </div>
-      <span class="opportunity-label">OPEN</span>
+      <span class="opportunity-label">{{ requirement().status }}</span>
     </div>
 
     <div class="card-tags">
@@ -41,7 +41,7 @@
           <span [class]="'source-bubble source-' + index">{{ source.charAt(0) }}</span>
         }
       </div>
-      <span>{{ requirement().postingCount }} {{ requirement().postingCount === 1 ? 'posting' : 'postings' }}<span class="footer-separator">·</span>{{ requirement().groupCount }} {{ requirement().groupCount === 1 ? 'group' : 'groups' }}</span>
+      <span>{{ requirement().postingCount }} {{ requirement().postingCount === 1 ? 'posting' : 'postings' }}<span class="footer-separator">·</span>{{ requirement().groupCount }} {{ requirement().groupCount === 1 ? 'vendor' : 'vendors' }}</span>
     </div>
     @if (requirement().paymentDate) {
       <span class="payment-date"><span class="material-symbols-outlined" aria-hidden="true">payments</span>Payment {{ requirement().paymentDate }}</span>

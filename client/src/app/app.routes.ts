@@ -22,6 +22,26 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/admin-users/admin-users').then((m) => m.AdminUsersPage),
   },
   {
+    path: 'organization/new',
+    canActivate: [roleGuard('Vendor', 'Admin')],
+    loadComponent: () => import('./pages/organization-form/organization-form').then((m) => m.OrganizationFormPage),
+  },
+  {
+    path: 'requirements/new',
+    canActivate: [roleGuard('Vendor', 'Admin')],
+    loadComponent: () => import('./pages/requirement-form/requirement-form').then((m) => m.RequirementFormPage),
+  },
+  {
+    path: 'requirements/:id/edit',
+    canActivate: [roleGuard('Vendor', 'Admin')],
+    loadComponent: () => import('./pages/requirement-form/requirement-form').then((m) => m.RequirementFormPage),
+  },
+  {
+    path: 'requirements/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/requirement-detail/requirement-detail').then((m) => m.RequirementDetailPage),
+  },
+  {
     path: '',
     pathMatch: 'full',
     canActivate: [authGuard],

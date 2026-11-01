@@ -1,4 +1,4 @@
-import { RoleSchema } from '@trainlead/shared';
+import { ORG_MEMBER_ROLES, RoleSchema } from '@trainlead/shared';
 import { Schema, model } from 'mongoose';
 
 const UserSchema = new Schema(
@@ -8,6 +8,8 @@ const UserSchema = new Schema(
     phone: { type: String, trim: true },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: RoleSchema.options, required: true, index: true },
+    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', default: null, index: true },
+    orgRole: { type: String, enum: [...ORG_MEMBER_ROLES, null], default: null },
     // Only the newest refresh token is valid; rotating this id revokes older ones.
     refreshTokenId: { type: String, default: null, select: false },
     deletedAt: { type: Date, default: null, index: true },

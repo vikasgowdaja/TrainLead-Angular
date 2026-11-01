@@ -1,0 +1,27 @@
+<main class="app-shell auth-page">
+  <section class="auth-card wide-card" aria-labelledby="organization-title">
+    <a class="back-link" routerLink="/">&larr; Back to requirements</a>
+    <p class="eyebrow">VENDOR ONBOARDING <span>/</span> ORGANIZATION</p>
+    <h1 id="organization-title">Set up your organization</h1>
+    <p class="auth-subtitle">Your organization owns its requirements and private posting terms.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="organization-form">
+      <label class="field"><span>Legal name</span><input formControlName="legalName" autocomplete="organization" />
+        @if (form.controls.legalName.touched && form.controls.legalName.invalid) { <small class="field-error">Enter the registered organization name.</small> }
+      </label>
+      <label class="field"><span>Brand name</span><input formControlName="brandName" /></label>
+      <label class="field"><span>Organization type</span><select formControlName="type">@for (type of types; track type) { <option [value]="type">{{ type }}</option> }</select></label>
+      <label class="field"><span>City</span><input formControlName="city" autocomplete="address-level2" /></label>
+      <label class="field"><span>State</span><input formControlName="state" autocomplete="address-level1" /></label>
+      <label class="field"><span>Website</span><input type="url" formControlName="website" placeholder="https://example.in" /></label>
+      <label class="field"><span>Primary contact</span><input formControlName="primaryContactName" autocomplete="name" /></label>
+      <label class="field"><span>Email</span><input type="email" formControlName="email" autocomplete="email" /></label>
+      <label class="field"><span>Phone</span><input type="tel" formControlName="phone" autocomplete="tel" placeholder="+919876543210" /></label>
+      <label class="field"><span>GSTIN <small>(optional)</small></span><input formControlName="gstin" /></label>
+      <label class="field"><span>PAN <small>(optional)</small></span><input formControlName="pan" /></label>
+
+      @if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p> }
+      <button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Create organization' }}</button>
+    </form>
+  </section>
+</main>

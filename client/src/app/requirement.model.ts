@@ -8,6 +8,9 @@ export interface SupportItem {
 export interface Requirement {
   id: string;
   title: string;
+  status: string;
+  canManage: boolean;
+  groupId: string | null;
   stack: string[];
   dateLabel: string;
   durationDays: number;

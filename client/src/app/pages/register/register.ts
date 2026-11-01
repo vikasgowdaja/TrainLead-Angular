@@ -78,7 +78,7 @@ export class RegisterPage {
       .register(input)
       .pipe(finalize(() => this.submitting.set(false)))
       .subscribe({
-        next: () => void this.router.navigateByUrl('/'),
+        next: () => void this.router.navigateByUrl(this.auth.currentUser()?.role === 'Vendor' ? '/organization/new' : '/'),
         error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
       });
   }

@@ -13,7 +13,7 @@
         role="tab"
         (click)="setView('requirements')"
       >
-        Requirements <span class="nav-count">03</span>
+        Requirements <span class="nav-count">{{ stats()?.activeOpportunities ?? '—' }}</span>
       </button>
       <button
         class="nav-tab"
@@ -22,12 +22,12 @@
         role="tab"
         (click)="setView('inbox')"
       >
-        Inbox <span class="nav-count inbox-count">02</span>
+        Inbox <span class="nav-count inbox-count">{{ stats()?.inboxPending ?? '—' }}</span>
       </button>
     </nav>
 
     <div class="topbar-actions">
-      <span class="network-status"><span></span> Demo workspace</span>
+      <span class="network-status"><span></span> Live marketplace</span>
       <button
         class="icon-button theme-toggle"
         type="button"
@@ -62,27 +62,27 @@
           <p class="page-description">Find the next room where your expertise can make a difference.</p>
         </div>
         <div class="heading-meta">
-          <span class="updated-label">UPDATED JUST NOW</span>
-          <span class="date-stamp">MON, NOV 02</span>
+          <span class="updated-label">{{ updatedLabel() }}</span>
+          <span class="date-stamp">{{ todayLabel() }}</span>
         </div>
       </section>
 
       <section class="overview" aria-label="Requirement overview">
         <div class="overview-main">
-          <span class="overview-label">OPEN OPPORTUNITIES</span>
-          <strong>03</strong>
-          <span class="overview-note"><span class="material-symbols-outlined" aria-hidden="true">trending_up</span> 2 new this week</span>
+          <span class="overview-label">ACTIVE OPPORTUNITIES</span>
+          <strong>{{ stats()?.activeOpportunities ?? '—' }}</strong>
+          <span class="overview-note"><span class="material-symbols-outlined" aria-hidden="true">trending_up</span> {{ stats()?.newThisWeek ?? '—' }} new this week</span>
         </div>
         <div class="overview-divider" aria-hidden="true"></div>
         <div class="overview-detail">
           <span class="detail-mark teal-mark"></span>
-          <span><strong>02</strong> repeated posts grouped</span>
+          <span><strong>{{ stats()?.repeatedGroups ?? '—' }}</strong> repeated groups</span>
         </div>
         <div class="overview-detail">
           <span class="detail-mark orange-mark"></span>
-          <span><strong>01</strong> payment date listed</span>
+          <span><strong>{{ stats()?.withPaymentDate ?? '—' }}</strong> with payment dates</span>
         </div>
-        <span class="overview-index">01 <span>/</span> 03</span>
+        <span class="overview-index">{{ requirements().length }} <span>/</span> {{ stats()?.activeOpportunities ?? '—' }}</span>
       </section>
 
       <div class="content-grid">
@@ -90,19 +90,54 @@
           <div class="section-heading">
             <div>
               <h2>Recently added</h2>
-              <p>Opportunities from your training network</p>
+              <p>{{ stats()?.openOpportunities ?? '—' }} open opportunities · {{ stats()?.sourcePosts ?? '—' }} source posts</p>
             </div>
-            <button class="sort-button" type="button" disabled aria-label="Sorted by newest">
+            @if (canCreate()) {
+              <a class="create-requirement-button" routerLink="/requirements/new"><span class="material-symbols-outlined" aria-hidden="true">add</span> New requirement</a>
+            }
+            <label class="sort-button" aria-label="Sort requirements">
               <span class="material-symbols-outlined" aria-hidden="true">sort</span>
-              Newest
-            </button>
+              <select [value]="filters().sort" (change)="setFilter('sort', $any($event.target).value)">
+                @for (sort of sorts; track sort) { <option [value]="sort">{{ sort | titlecase }}</option> }
+              </select>
+            </label>
           </div>
 
+          <div class="dashboard-tools" aria-label="Search and filter requirements">
+            <label class="search-field"><span class="material-symbols-outlined" aria-hidden="true">search</span><input type="search" placeholder="Search skills, city or vendor" [value]="filters().q ?? ''" (input)="search($any($event.target).value)" /></label>
+            <input aria-label="Filter by skill" placeholder="Skill" [value]="filters().skill ?? ''" (input)="setFilter('skill', $any($event.target).value)" />
+            <input aria-label="Filter by city" placeholder="City" [value]="filters().city ?? ''" (input)="setFilter('city', $any($event.target).value)" />
+            <select aria-label="Filter by status" [value]="filters().status ?? ''" (change)="setFilter('status', $any($event.target).value)">
+              <option value="">All statuses</option>
+              @for (status of statuses; track status) { <option [value]="status">{{ status }}</option> }
+            </select>
+            <select aria-label="Filter by delivery mode" [value]="filters().mode ?? ''" (change)="setFilter('mode', $any($event.target).value)">
+              <option value="">All modes</option>
+              @for (mode of modes; track mode) { <option [value]="mode">{{ mode }}</option> }
+            </select>
+            <label class="date-filter">Start from <input type="date" [value]="filters().startFrom ?? ''" (change)="setDateFilter('startFrom', $any($event.target).value)" /></label>
+            <label class="date-filter">Through <input type="date" [value]="filters().startTo ?? ''" (change)="setDateFilter('startTo', $any($event.target).value)" /></label>
+            <label class="filter-check"><input type="checkbox" [checked]="filters().repeated === true" (change)="setBooleanFilter('repeated', $event)" /> Repeated</label>
+            <label class="filter-check"><input type="checkbox" [checked]="filters().hasPaymentDate === true" (change)="setBooleanFilter('hasPaymentDate', $event)" /> Payment date</label>
+          </div>
+
+          @if (errorMessage(); as message) {
+            <div class="state-banner error-banner" role="alert"><span>{{ message }}</span><button type="button" (click)="reload()">Retry</button></div>
+          }
+
           <div class="card-list">
-            @for (requirement of requirements; track requirement.id) {
+            @if (loading()) {
+              @for (slot of [1, 2, 3]; track slot) { <div class="requirement-skeleton" aria-hidden="true"></div> }
+            } @else if (!errorMessage() && requirements().length === 0) {
+              <div class="empty-state"><span class="material-symbols-outlined" aria-hidden="true">search_off</span><h3>No requirements found</h3><p>Try changing a filter, or create a requirement for your organization.</p></div>
+            }
+            @for (requirement of requirements(); track requirement.id) {
               <app-requirement-card [requirement]="requirement" />
             }
           </div>
+          @if (hasMore()) {
+            <button class="load-more-button" type="button" [disabled]="loadingMore()" (click)="loadMore()">{{ loadingMore() ? 'Loading…' : 'Load more' }}</button>
+          }
         </section>
 
         <aside class="sidebar" aria-label="Marketplace notes">
@@ -114,21 +149,15 @@
               </div>
               <span class="material-symbols-outlined panel-icon" aria-hidden="true">hub</span>
             </div>
-            <div class="source-row">
-              <span class="source-avatar source-one">S</span>
-              <span class="source-name">SkillBridge Academy</span>
-              <span class="source-total">04</span>
-            </div>
-            <div class="source-row">
-              <span class="source-avatar source-two">C</span>
-              <span class="source-name">Campus Connect</span>
-              <span class="source-total">03</span>
-            </div>
-            <div class="source-row">
-              <span class="source-avatar source-three">T</span>
-              <span class="source-name">Tech Trainers India</span>
-              <span class="source-total">02</span>
-            </div>
+            @for (vendor of stats()?.topVendors ?? []; track vendor.id; let index = $index) {
+              <div class="source-row">
+                <span [class]="'source-avatar source-' + (index % 3)">{{ vendor.name.charAt(0) }}</span>
+                <span class="source-name">{{ vendor.name }}</span>
+                <span class="source-total">{{ vendor.sourceCount }}</span>
+              </div>
+            } @empty {
+              <p class="panel-footnote">Vendor sources will appear as requirements are posted.</p>
+            }
             <p class="panel-footnote">Posts are grouped when they describe the same training need.</p>
           </section>
 
@@ -148,19 +177,33 @@
           <h1 id="page-title">Inbox</h1>
           <p class="page-description">New posts collected from your training network.</p>
         </div>
-        <span class="inbox-total"><span class="inbox-dot"></span> {{ posts.length }} waiting</span>
+        <span class="inbox-total"><span class="inbox-dot"></span> {{ stats()?.inboxPending ?? '—' }} waiting</span>
       </section>
 
+      <section class="capture-panel" aria-label="Capture a requirement post">
+        <label for="capture-text">Capture a message</label>
+        <textarea id="capture-text" rows="3" [value]="captureText()" (input)="captureText.set($any($event.target).value)" placeholder="Paste a vendor or group message"></textarea>
+        <button class="create-requirement-button" type="button" [disabled]="capturing() || !captureText().trim()" (click)="capture()">{{ capturing() ? 'Capturing…' : 'Capture for review' }}</button>
+      </section>
+      @if (inboxError(); as message) { <div class="state-banner error-banner" role="alert"><span>{{ message }}</span><button type="button" (click)="loadInbox()">Retry</button></div> }
+
       <section class="inbox-list" aria-label="Incoming requirement posts">
-        @for (post of posts; track post.id) {
+        @if (inboxLoading()) {
+          <div class="requirement-skeleton" aria-hidden="true"></div>
+        } @else if (posts().length === 0 && !inboxError()) {
+          <div class="empty-state"><h3>Your inbox is clear</h3><p>Captured messages will appear here for review.</p></div>
+        }
+        @for (post of posts(); track post.id) {
           <article class="inbox-post">
-            <div class="post-source-icon" aria-hidden="true">{{ post.sourceInitial }}</div>
+            <div class="post-source-icon" aria-hidden="true">{{ post.organization?.name?.charAt(0) ?? post.sourceType.charAt(0) }}</div>
             <div class="post-content">
-              <div class="post-meta"><strong>{{ post.source }}</strong><span>{{ post.receivedAt }}</span></div>
-              <p>{{ post.text }}</p>
-              <span class="post-group"><span class="material-symbols-outlined" aria-hidden="true">forum</span>{{ post.group }}</span>
+              <div class="post-meta"><strong>{{ post.organization?.name ?? post.sourceType }}</strong><span>{{ formatReceived(post.receivedAt) }}</span></div>
+              <p>{{ post.rawText }}</p>
+              <span class="post-group"><span class="material-symbols-outlined" aria-hidden="true">forum</span>{{ post.groupName || 'No group specified' }}</span>
+              <span class="review-status"><span></span>{{ post.status }} · {{ post.missingFields.length ? 'Needs review' : 'Ready to review' }}</span>
+              @if (post.missingFields.length) { <p class="panel-footnote">Missing: {{ post.missingFields.join(', ') }}</p> }
             </div>
-            <span class="review-status"><span></span> New post</span>
+            <button class="icon-button" type="button" aria-label="Discard captured message" title="Discard" (click)="discardInbox(post.id)"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
           </article>
         }
       </section>

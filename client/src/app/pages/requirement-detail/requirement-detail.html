@@ -1,0 +1,51 @@
+<main class="app-shell auth-page">
+  <section class="auth-card wide-card requirement-detail" aria-labelledby="requirement-title">
+    <a class="back-link" routerLink="/">&larr; Back to requirements</a>
+    @if (loading()) { <div class="requirement-skeleton" aria-hidden="true"></div> }
+    @else if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p><button class="secondary-button" type="button" (click)="load()">Retry</button> }
+    @else if (requirement(); as item) {
+      <p class="eyebrow">{{ item.organization.name }} <span>/</span> {{ item.status }}</p>
+      <h1 id="requirement-title">{{ item.title }}</h1>
+      <p class="auth-subtitle">{{ item.description || 'No description provided.' }}</p>
+      <div class="detail-toolbar">
+        @if (item.canManage) {
+          <button class="secondary-button" type="button" (click)="edit()">Edit</button>
+          <button class="secondary-button" type="button" (click)="duplicate()">Duplicate</button>
+          @for (status of item.allowedStatuses; track status) { <button class="secondary-button" type="button" [disabled]="saving()" (click)="changeStatus(status)">{{ status }}</button> }
+          <button class="danger-button" type="button" [disabled]="saving()" (click)="remove()">Delete</button>
+        }
+      </div>
+      <dl class="detail-grid">
+        <div><dt>Location</dt><dd>{{ item.city }}{{ item.state ? ', ' + item.state : '' }}</dd></div>
+        <div><dt>Delivery</dt><dd>{{ item.mode }}</dd></div>
+        <div><dt>Training dates</dt><dd>{{ formatDate(item.startDate) }} – {{ formatDate(item.endDate) }}</dd></div>
+        <div><dt>Duration</dt><dd>{{ item.durationDays }} days</dd></div>
+        <div><dt>Audience</dt><dd>{{ item.audience }}</dd></div>
+        <div><dt>Batch size</dt><dd>{{ item.studentCount ?? 'Not specified' }}</dd></div>
+        <div><dt>Domain</dt><dd>{{ item.domain || 'Not specified' }}</dd></div>
+        <div><dt>Experience</dt><dd>{{ item.experienceRequired || 'Not specified' }}</dd></div>
+        <div><dt>Payment date</dt><dd>{{ item.paymentDueDate ? formatDate(item.paymentDueDate) : 'Not specified' }}</dd></div>
+        @if (item.canManage) {
+          <div><dt>Budget range</dt><dd>{{ item.budgetMin ?? '—' }} – {{ item.budgetMax ?? '—' }}</dd></div>
+          <div><dt>Payment terms</dt><dd>{{ item.paymentTerms || 'Not specified' }}</dd></div>
+        }
+      </dl>
+      <section class="detail-section"><h2>Required skills</h2><div class="card-tags">@for (skill of item.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div></section>
+      <section class="detail-section support-strip"><span class="support-item"><span class="support-name">Travel</span><span class="support-status">{{ item.travel }}</span></span><span class="support-item"><span class="support-name">Food</span><span class="support-status">{{ item.food }}</span></span><span class="support-item"><span class="support-name">Stay</span><span class="support-status">{{ item.stay }}</span></span></section>
+      <section class="detail-section"><h2>Organization</h2><p>{{ item.organizationDetail.name }} · {{ item.organizationDetail.verificationStatus }}</p>
+        @if (item.organizationDetail.contact; as contact) { <p>{{ contact.name }} · {{ contact.email ?? contact.phone }}</p> }
+      </section>
+      <section class="detail-section"><h2>Sources <span class="count-mark">{{ item.sourceCount }}</span></h2>
+        @for (source of item.sources; track source.id) {
+          <article class="source-detail"><strong>{{ source.organization.name }}</strong><span>{{ source.sourceType }} · {{ source.groupName || 'No group' }}</span><time>{{ source.importedAt | date: 'medium' }}</time>
+            @if (source.rawText) { <p>{{ source.rawText }}</p> }
+          </article>
+        } @empty { <p class="auth-subtitle">No source messages recorded.</p> }
+      </section>
+      @if (item.groupMembers.length > 1) {
+        <section class="detail-section"><h2>Related vendor posts</h2>@for (member of item.groupMembers; track member.id) { <p>{{ member.organization.name }} · {{ member.title }} · {{ member.status }}</p> }</section>
+      }
+      <p class="panel-footnote">Created {{ item.createdAt | date: 'medium' }} · Updated {{ item.updatedAt | date: 'medium' }}</p>
+    }
+  </section>
+</main>

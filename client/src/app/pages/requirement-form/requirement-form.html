@@ -1,0 +1,39 @@
+<main class="app-shell auth-page">
+  <section class="auth-card wide-card" aria-labelledby="requirement-title">
+    <a class="back-link" routerLink="/">&larr; Back to requirements</a>
+    <p class="eyebrow">VENDOR WORKSPACE <span>/</span> REQUIREMENT</p>
+    <h1 id="requirement-title">{{ id ? 'Edit requirement' : 'New requirement' }}</h1>
+    @if (loading()) { <p class="auth-subtitle">Loading requirement…</p> } @else {
+      <form [formGroup]="form" (ngSubmit)="save(true)" class="requirement-form" novalidate>
+        <label class="field field-wide"><span>Title</span><input formControlName="title" />@if (form.controls.title.touched && form.controls.title.invalid) { <small class="field-error">Enter a title with at least 3 characters.</small> }</label>
+        <label class="field field-wide"><span>Description</span><textarea rows="3" formControlName="description"></textarea></label>
+        <label class="field"><span>Domain</span><input formControlName="domain" placeholder="Frontend development" /></label>
+        <label class="field"><span>Required skills <small>(comma separated)</small></span><input formControlName="skills" placeholder="AngularJS, JavaScript" />@if (form.controls.skills.touched && form.controls.skills.invalid) { <small class="field-error">Add at least one skill.</small> }</label>
+        <label class="field"><span>City</span><input formControlName="city" />@if (form.controls.city.touched && form.controls.city.invalid) { <small class="field-error">Enter the training city.</small> }</label>
+        <label class="field"><span>State</span><input formControlName="state" /></label>
+        <label class="field"><span>Delivery mode</span><select formControlName="mode">@for (mode of modes; track mode) { <option [value]="mode">{{ mode }}</option> }</select></label>
+        <label class="field"><span>Start date</span><input type="date" formControlName="startDate" /></label>
+        <label class="field"><span>End date</span><input type="date" formControlName="endDate" /></label>
+        @if (form.hasError('dateOrder') && form.controls.endDate.touched) { <small class="field-error field-wide">End date must be on or after start date.</small> }
+        <label class="field"><span>Duration in days</span><input type="number" min="1" formControlName="durationDays" /></label>
+        <label class="field"><span>Target audience</span><input formControlName="audience" placeholder="6th semester engineering students" /></label>
+        <label class="field"><span>Number of students</span><input type="number" min="1" formControlName="studentCount" /></label>
+        <label class="field"><span>Experience requirements</span><input formControlName="experienceRequired" /></label>
+        <label class="field"><span>Budget minimum</span><input type="number" min="0" formControlName="budgetMin" /></label>
+        <label class="field"><span>Budget maximum</span><input type="number" min="0" formControlName="budgetMax" /></label>
+        <label class="field"><span>Payment terms</span><input formControlName="paymentTerms" /></label>
+        <label class="field"><span>Payment due date</span><input type="date" formControlName="paymentDueDate" /></label>
+        <fieldset class="support-fields field-wide"><legend>Travel, food and accommodation</legend>
+          <label class="field"><span>Travel</span><select formControlName="travel">@for (status of supportStatuses; track status) { <option [value]="status">{{ status }}</option> }</select></label>
+          <label class="field"><span>Food</span><select formControlName="food">@for (status of supportStatuses; track status) { <option [value]="status">{{ status }}</option> }</select></label>
+          <label class="field"><span>Stay</span><select formControlName="stay">@for (status of supportStatuses; track status) { <option [value]="status">{{ status }}</option> }</select></label>
+        </fieldset>
+        @if (errorMessage(); as message) { <p class="form-error field-wide" role="alert">{{ message }}</p> }
+        <div class="form-actions field-wide">
+          <button class="secondary-button" type="button" [disabled]="saving()" (click)="save(false)">Save draft</button>
+          <button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Publish requirement' }}</button>
+        </div>
+      </form>
+    }
+  </section>
+</main>

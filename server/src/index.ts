@@ -7,9 +7,13 @@ import helmet from 'helmet';
 import pino from 'pino';
 import { pinoHttp } from 'pino-http';
 import { connectDatabase } from './database.js';
+import { HttpError } from './http.js';
 import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
+import { inboxRouter } from './routes/inbox.js';
+import { organizationsRouter } from './routes/organizations.js';
 import { requirementsRouter } from './routes/requirements.js';
+import { skillsRouter } from './routes/skills.js';
 
 const logger = pino({
   redact: {
@@ -66,7 +70,10 @@ app.get('/api/health', (_request, response) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/organizations', organizationsRouter);
 app.use('/api/requirements', requirementsRouter);
+app.use('/api/skills', skillsRouter);
+app.use('/api/inbox', inboxRouter);
 
 app.use((_request, response) => {
   response.status(404).json({ error: 'Route not found' });
@@ -74,6 +81,10 @@ app.use((_request, response) => {
 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   logger.error({ errorName: error instanceof Error ? error.name : 'UnknownError' }, 'Request failed');
+  if (error instanceof HttpError) {
+    response.status(error.status).json({ error: error.message, ...(error.details ? { details: error.details } : {}) });
+    return;
+  }
   response.status(500).json({ error: 'Internal server error' });
 });
 
