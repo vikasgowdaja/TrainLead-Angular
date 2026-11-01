@@ -238,9 +238,24 @@ export interface ApplicationView {
   status: ApplicationStatus;
   interview: { provider: InterviewProvider; meetingUrl: string; scheduledAt: string; notes: string } | null;
   decisionNote: string | null;
+  trainerRating: number | null;
+  trainerReview: string | null;
   canManage: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export type TrainerNotificationKind = 'NewRequirement' | 'ApplicationUpdate' | 'ProjectRating';
+
+export interface TrainerNotificationView {
+  id: string;
+  kind: TrainerNotificationKind;
+  requirementId: string;
+  applicationId: string | null;
+  title: string;
+  message: string;
+  createdAt: string;
+  readAt: string | null;
 }
 
 export interface ApplicationNotificationView {

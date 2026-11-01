@@ -33,6 +33,7 @@ import { InboxItem } from '../models/inbox-item.js';
 import { canManageRequirement, canViewRequirementCommercials, visibilityFilter } from '../services/access.js';
 import { autoGroup, computeMatchKey, findSimilar, groupManually, refreshGroup, ungroup } from '../services/grouping.js';
 import { canonicalSkillKey, resolveSkills } from '../services/skills.js';
+import { notifyMatchingTrainersOfRequirement } from '../services/trainer-notifications.js';
 import { extractRequirement, extractRequirementImage } from '../services/requirement-extraction.js';
 import { withTransaction } from '../database.js';
 
@@ -302,6 +303,7 @@ async function createRequirement(
     }
     if (publish) {
       await autoGroup(document._id, session);
+      await notifyMatchingTrainersOfRequirement(document._id, document.title, skills.names, session);
     }
     return document;
   });
@@ -658,6 +660,9 @@ router.patch('/:id/status', requireRole('Admin', 'Vendor'), loadActor, async (re
   ).lean();
   if (!updated) throw notFound('Requirement');
   if (status !== 'Draft') await autoGroup(id);
+  if (status === 'Open' && current.status !== 'Open') {
+    await notifyMatchingTrainersOfRequirement(id, updated.title, updated.skillNames);
+  }
   response.json({ data: await requirementDetail(updated as unknown as RequirementRecord, actor) });
 });
 

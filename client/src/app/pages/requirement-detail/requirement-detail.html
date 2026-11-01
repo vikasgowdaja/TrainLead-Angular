@@ -83,6 +83,7 @@
                 }
                 @if (application.status === 'Accepted' && (application.trainer.email || application.trainer.phone)) { <p>Vendor has accepted your application. Contact: {{ application.trainer.email ?? application.trainer.phone }}</p> }
                 @if (application.decisionNote) { <div class="application-feedback"><strong>Vendor feedback</strong><p>{{ application.decisionNote }}</p></div> }
+                @if (application.trainerRating !== null) { <div class="application-feedback"><strong>Project rating: {{ application.trainerRating }}/5</strong>@if (application.trainerReview) { <p>{{ application.trainerReview }}</p> }</div> }
                 @if (application.status === 'Rejected' && item.status === 'Open') { <p class="detail-card-intro">You can update your details and reapply while this requirement is open.</p><button class="primary-button" type="button" (click)="startReapplication(application)">Reapply to requirement</button> }
               } @else if (item.status === 'Open') {
                 <p class="detail-card-intro">{{ reapplying() ? 'Review and update your details before resubmitting this application.' : 'Apply to this training requirement. The Vendor will review your application and may schedule a video interview.' }}</p>
@@ -115,6 +116,14 @@
                   <nav class="trainer-links" aria-label="Trainer profile links"><app-resume-preview [url]="application.trainer.profileLinks.resume" /><a [href]="application.trainer.profileLinks.github" target="_blank" rel="noopener noreferrer">GitHub</a><a [href]="application.trainer.profileLinks.linkedin" target="_blank" rel="noopener noreferrer">LinkedIn</a><a [href]="application.trainer.profileLinks.leetcode" target="_blank" rel="noopener noreferrer">LeetCode</a></nav>
                   @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
                   @if (application.expectedRate !== null) { <p>Expected daily rate: {{ application.expectedRate | currency: 'INR' }}</p> }
+                  @if (application.trainerRating !== null) { <div class="application-feedback"><strong>Project rating: {{ application.trainerRating }}/5</strong>@if (application.trainerReview) { <p>{{ application.trainerReview }}</p> }</div> }
+                  @if (canRateTrainer(application)) {
+                    <div class="trainer-rating-editor">
+                      <label class="field"><span>Project performance</span><select [value]="trainerRating(application)" [disabled]="ratingBusy() === application.id" (change)="updateTrainerRating(application, $any($event.target).value)"><option value="0">Select a rating</option><option value="1">1 · Needs improvement</option><option value="2">2 · Developing</option><option value="3">3 · Meets expectations</option><option value="4">4 · Strong performance</option><option value="5">5 · Excellent</option></select></label>
+                      <label class="field"><span>Review <small>(optional)</small></span><textarea rows="2" maxlength="1000" [value]="trainerReview(application)" [disabled]="ratingBusy() === application.id" (input)="updateTrainerReview(application, $any($event.target).value)" placeholder="Share feedback about this project"></textarea></label>
+                      <button class="secondary-button" type="button" [disabled]="ratingBusy() === application.id || trainerRating(application) < 1" (click)="saveTrainerRating(application)">{{ ratingBusy() === application.id ? 'Saving rating…' : application.trainerRating === null ? 'Save project rating' : 'Update project rating' }}</button>
+                    </div>
+                  }
                   @if (application.status === 'Applied' || application.status === 'InterviewScheduled' || application.status === 'OnHold') {
                     <label class="field application-feedback-input"><span>Feedback for trainer <small>(optional, max 500 characters)</small></span><textarea rows="2" maxlength="500" [value]="applicationFeedback(application)" [disabled]="applicationBusy() === application.id" (input)="updateApplicationFeedback(application, $any($event.target).value)" placeholder="Share interview feedback or an area to improve"></textarea></label>
                     <div class="application-actions">

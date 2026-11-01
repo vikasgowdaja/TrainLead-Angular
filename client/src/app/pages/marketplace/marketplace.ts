@@ -3,7 +3,7 @@ import { DatePipe, TitleCasePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { RequirementQuery } from '@trainlead/shared';
-import type { ApplicationNotificationView, DashboardStats, ExtractedRequirement, InboxItemView, RequirementSummary, SourceType } from '@trainlead/shared/domain';
+import type { ApplicationNotificationView, DashboardStats, ExtractedRequirement, InboxItemView, RequirementSummary, SourceType, TrainerNotificationView } from '@trainlead/shared/domain';
 import { DELIVERY_MODES, REQUIREMENT_STATUSES, REQUIREMENT_SORTS, SOURCE_TYPES } from '@trainlead/shared/domain';
 import type { RequirementInput } from '@trainlead/shared';
 import { EMPTY, Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin } from 'rxjs';
@@ -45,7 +45,9 @@ export class MarketplacePage {
   protected readonly organizationExists = signal(false);
   protected readonly inboxEdits = signal<Record<string, Partial<ExtractedRequirement>>>({});
   protected readonly applicationNotifications = signal<ApplicationNotificationView[]>([]);
+  protected readonly trainerNotifications = signal<TrainerNotificationView[]>([]);
   protected readonly pendingApplicationCount = signal(0);
+  protected readonly unreadTrainerNotificationCount = signal(0);
   protected readonly notificationsOpen = signal(false);
   protected readonly accountMenuOpen = signal(false);
   protected readonly notificationsLoading = signal(false);
@@ -77,6 +79,7 @@ export class MarketplacePage {
       this.updateFilters({ [key]: value || undefined });
     });
     if (this.auth.hasRole('Trainer')) {
+      this.loadTrainerNotifications();
       this.marketplace.getTrainerProfile().pipe(takeUntilDestroyed()).subscribe({
         next: ({ data }) => this.trainerPhotoUrl.set(data.photoUrl),
       });
@@ -118,11 +121,25 @@ export class MarketplacePage {
   protected toggleNotifications(): void {
     const open = !this.notificationsOpen();
     this.notificationsOpen.set(open);
-    if (open) this.loadApplicationNotifications();
+    if (open) {
+      if (this.auth.hasRole('Trainer')) this.loadTrainerNotifications();
+      else this.loadApplicationNotifications();
+    }
   }
 
   protected closeNotifications(): void {
     this.notificationsOpen.set(false);
+  }
+
+  protected markTrainerNotificationRead(notification: TrainerNotificationView): void {
+    this.closeNotifications();
+    if (notification.readAt) return;
+    const readAt = new Date().toISOString();
+    this.trainerNotifications.update((items) => items.map((item) => item.id === notification.id ? { ...item, readAt } : item));
+    this.unreadTrainerNotificationCount.update((count) => Math.max(0, count - 1));
+    this.marketplace.markTrainerNotificationRead(notification.id).subscribe({
+      error: (error: unknown) => this.notificationsError.set(describeHttpError(error)),
+    });
   }
 
   protected toggleAccountMenu(): void {
@@ -140,6 +157,18 @@ export class MarketplacePage {
       next: ({ data, pendingCount }) => {
         this.applicationNotifications.set(data);
         this.pendingApplicationCount.set(pendingCount);
+      },
+      error: (error: unknown) => this.notificationsError.set(describeHttpError(error)),
+    });
+  }
+
+  private loadTrainerNotifications(): void {
+    this.notificationsLoading.set(true);
+    this.notificationsError.set(null);
+    this.marketplace.getTrainerNotifications().pipe(finalize(() => this.notificationsLoading.set(false))).subscribe({
+      next: ({ data, unreadCount }) => {
+        this.trainerNotifications.set(data);
+        this.unreadTrainerNotificationCount.set(unreadCount);
       },
       error: (error: unknown) => this.notificationsError.set(describeHttpError(error)),
     });

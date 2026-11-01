@@ -15,6 +15,7 @@ import type {
   RequirementStatus,
   RequirementSummary,
   SourceType,
+  TrainerNotificationView,
   VerificationStatus,
   SkillView,
   TrainerProfileView,
@@ -156,6 +157,18 @@ export class MarketplaceService {
 
   getApplicationNotifications(): Observable<{ data: ApplicationNotificationView[]; pendingCount: number }> {
     return this.http.get<{ data: ApplicationNotificationView[]; pendingCount: number }>('/api/applications/notifications');
+  }
+
+  getTrainerNotifications(): Observable<{ data: TrainerNotificationView[]; unreadCount: number }> {
+    return this.http.get<{ data: TrainerNotificationView[]; unreadCount: number }>('/api/applications/trainer/notifications');
+  }
+
+  markTrainerNotificationRead(id: string): Observable<{ data: { id: string; readAt: string } }> {
+    return this.http.patch<{ data: { id: string; readAt: string } }>(`/api/applications/trainer/notifications/${id}/read`, {});
+  }
+
+  rateTrainerProject(applicationId: string, input: { rating: number; review: string | null }): Observable<{ data: ApplicationView }> {
+    return this.http.patch<{ data: ApplicationView }>(`/api/applications/${applicationId}/review`, input);
   }
 
   scheduleApplicationInterview(applicationId: string, input: InterviewScheduleInput): Observable<{ data: ApplicationView }> {

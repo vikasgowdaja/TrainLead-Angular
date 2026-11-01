@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import type { DashboardStats, RequirementSummary } from '@trainlead/shared/domain';
+import type { DashboardStats, RequirementSummary, TrainerNotificationView } from '@trainlead/shared/domain';
 import type { Role } from '@trainlead/shared';
 import { AuthService } from '../../core/auth/auth.service';
 import { MarketplacePage } from './marketplace';
@@ -29,12 +29,19 @@ const stats: DashboardStats = {
   topVendors: [{ id: 'org-1', name: 'SkillBridge Academy', sourceCount: 1 }],
 };
 
-function flushDashboard(fixture: ReturnType<typeof TestBed.createComponent<MarketplacePage>>, profilePhotoUrl: string | null = null): void {
+function flushDashboard(
+  fixture: ReturnType<typeof TestBed.createComponent<MarketplacePage>>,
+  profilePhotoUrl: string | null = null,
+  trainerNotifications: TrainerNotificationView[] = [],
+): void {
   const http = TestBed.inject(HttpTestingController);
   http.expectOne((request) => request.url === '/api/requirements').flush({ data: [summary], page: 1, limit: 10, total: 1, hasMore: false });
   http.expectOne('/api/requirements/stats').flush({ data: stats });
   for (const request of http.match('/api/trainer-profile/me')) {
     request.flush({ data: { id: '1', name: 'Ananya Rao', email: 'a@b.co', phone: null, photoUrl: profilePhotoUrl, resumeUrl: null, resumeFileName: null } });
+  }
+  for (const request of http.match('/api/applications/trainer/notifications')) {
+    request.flush({ data: trainerNotifications, unreadCount: trainerNotifications.filter((notification) => !notification.readAt).length });
   }
   fixture.detectChanges();
 }
@@ -112,6 +119,40 @@ describe('MarketplacePage', () => {
     fixture.detectChanges();
     expect(compiled.querySelectorAll('.account-menu a[href="/trainer/profile"]').length).toBe(1);
     expect(compiled.querySelector('a[href="/skills"]')).not.toBeNull();
+  });
+
+  it('shows unread trainer alerts for matching requirements and vendor application updates', () => {
+    signInAs('Trainer');
+    const fixture = TestBed.createComponent(MarketplacePage);
+    fixture.detectChanges();
+    const notifications: TrainerNotificationView[] = [
+      {
+        id: 'notice-1', kind: 'NewRequirement', requirementId: 'req-1', applicationId: null,
+        title: 'New matching training requirement', message: 'AngularJS foundations',
+        createdAt: '2026-11-01T04:00:00.000Z', readAt: null,
+      },
+      {
+        id: 'notice-2', kind: 'ApplicationUpdate', requirementId: 'req-1', applicationId: 'app-1',
+        title: 'Application on hold', message: 'Please strengthen your project examples.',
+        createdAt: '2026-11-01T05:00:00.000Z', readAt: null,
+      },
+    ];
+    flushDashboard(fixture, null, notifications);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.notification-count')?.textContent).toBe('2');
+    compiled.querySelector<HTMLButtonElement>('.notification-toggle')?.click();
+    fixture.detectChanges();
+    TestBed.inject(HttpTestingController).expectOne('/api/applications/trainer/notifications')
+      .flush({ data: notifications, unreadCount: 2 });
+    fixture.detectChanges();
+
+    const entries = compiled.querySelectorAll<HTMLAnchorElement>('.notification-entry');
+    expect(entries).toHaveLength(2);
+    expect(entries[0]?.getAttribute('href')).toBe('/requirements/req-1');
+    expect(entries[1]?.getAttribute('href')).toBe('/requirements/req-1#application-app-1');
+    expect(entries[1]?.textContent).toContain('Please strengthen your project examples.');
+    expect(entries[0]?.classList.contains('is-unread')).toBe(true);
   });
 
   it('shows vendor application notifications linked to the matching application', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AddMemberSchema, ApplicationDecisionSchema, ApplyToRequirementSchema, CreateRequirementSchema, DemoSlotsUpdateSchema, InterviewScheduleSchema, RequirementInputSchema, RequirementQuerySchema, TrainerProfileUpdateSchema, canTransition, skillKey } from './index.js';
+import { AddMemberSchema, ApplicationDecisionSchema, ApplyToRequirementSchema, CreateRequirementSchema, DemoSlotsUpdateSchema, InterviewScheduleSchema, RequirementInputSchema, RequirementQuerySchema, TrainerProfileUpdateSchema, TrainerProjectReviewSchema, canTransition, skillKey } from './index.js';
 
 const mysuru = {
   title: 'AngularJS foundations for engineering students',
@@ -124,6 +124,16 @@ describe('application workflow schemas', () => {
 describe('RequirementQuerySchema', () => {
   it('parses query-string booleans and paging', () => {
     expect(RequirementQuerySchema.parse({ repeated: 'true', page: '2' })).toMatchObject({ repeated: true, page: 2, sort: 'newest' });
+  });
+});
+
+describe('TrainerProjectReviewSchema', () => {
+  it('accepts integer ratings from one through five with an optional review', () => {
+    expect(TrainerProjectReviewSchema.safeParse({ rating: 1 }).success).toBe(true);
+    expect(TrainerProjectReviewSchema.safeParse({ rating: 5, review: 'Strong delivery.' }).success).toBe(true);
+    expect(TrainerProjectReviewSchema.safeParse({ rating: 0 }).success).toBe(false);
+    expect(TrainerProjectReviewSchema.safeParse({ rating: 6 }).success).toBe(false);
+    expect(TrainerProjectReviewSchema.safeParse({ rating: 3.5 }).success).toBe(false);
   });
 });
 

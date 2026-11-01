@@ -248,6 +248,11 @@ export const ApplicationDecisionSchema = z.object({
   decisionNote: optionalText(500),
 });
 
+export const TrainerProjectReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  review: optionalText(1000),
+});
+
 export const GroupRequirementsSchema = z.object({
   requirementIds: z.array(z.string().regex(/^[a-f0-9]{24}$/i)).min(2).max(50),
 });

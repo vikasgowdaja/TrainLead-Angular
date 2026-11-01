@@ -55,6 +55,9 @@ export class RequirementDetailPage {
   protected readonly uploadingResume = signal(false);
   protected readonly applicationBusy = signal<string | null>(null);
   protected readonly applicationFeedbackNotes = signal<Record<string, string>>({});
+  protected readonly trainerRatingDrafts = signal<Record<string, number>>({});
+  protected readonly trainerReviewDrafts = signal<Record<string, string>>({});
+  protected readonly ratingBusy = signal<string | null>(null);
   protected readonly demoProvider = signal<'Google Meet' | 'Zoom' | 'Microsoft Teams'>('Google Meet');
   protected readonly demoMeetingUrl = signal('');
   protected readonly demoSlotDate = signal('');
@@ -317,6 +320,41 @@ export class RequirementDetailPage {
 
   protected updateApplicationFeedback(application: ApplicationView, value: string): void {
     this.applicationFeedbackNotes.update((notes) => ({ ...notes, [application.id]: value }));
+  }
+
+  protected canRateTrainer(application: ApplicationView): boolean {
+    return application.status === 'Accepted' && application.requirement.endDate < new Date().toISOString().slice(0, 10);
+  }
+
+  protected trainerRating(application: ApplicationView): number {
+    return this.trainerRatingDrafts()[application.id] ?? application.trainerRating ?? 0;
+  }
+
+  protected trainerReview(application: ApplicationView): string {
+    return this.trainerReviewDrafts()[application.id] ?? application.trainerReview ?? '';
+  }
+
+  protected updateTrainerRating(application: ApplicationView, value: string): void {
+    this.trainerRatingDrafts.update((ratings) => ({ ...ratings, [application.id]: Number(value) }));
+  }
+
+  protected updateTrainerReview(application: ApplicationView, value: string): void {
+    this.trainerReviewDrafts.update((reviews) => ({ ...reviews, [application.id]: value }));
+  }
+
+  protected saveTrainerRating(application: ApplicationView): void {
+    const rating = this.trainerRating(application);
+    if (!this.canRateTrainer(application) || !Number.isInteger(rating) || rating < 1 || rating > 5 || this.ratingBusy() === application.id) return;
+    this.ratingBusy.set(application.id);
+    this.api.rateTrainerProject(application.id, { rating, review: this.trainerReview(application).trim() || null })
+      .pipe(finalize(() => this.ratingBusy.set(null)))
+      .subscribe({
+        next: ({ data }) => {
+          this.replaceApplication(data);
+          this.successMessage.set('Project rating saved and shared with the trainer.');
+        },
+        error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+      });
   }
 
   protected decideApplication(application: ApplicationView, status: 'Accepted' | 'Rejected' | 'OnHold'): void {

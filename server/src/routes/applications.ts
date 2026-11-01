@@ -1,14 +1,17 @@
 import { Router } from 'express';
-import { ApplicationDecisionSchema, ApplyToRequirementSchema, BookDemoSlotSchema, InterviewScheduleSchema } from '@trainlead/shared';
-import type { ApplicationNotificationView, ApplicationStatus, ApplicationView } from '@trainlead/shared/domain';
+import { ApplicationDecisionSchema, ApplyToRequirementSchema, BookDemoSlotSchema, InterviewScheduleSchema, TrainerProjectReviewSchema } from '@trainlead/shared';
+import type { ApplicationNotificationView, ApplicationStatus, ApplicationView, TrainerNotificationView } from '@trainlead/shared/domain';
 import { Types } from 'mongoose';
 import { actorOf, loadActor, requireOrganization } from '../auth/actor.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { HttpError, notFound, objectId, parseBody } from '../http.js';
 import { Application } from '../models/application.js';
+import { Notification } from '../models/notification.js';
 import { Requirement } from '../models/requirement.js';
 import { User } from '../models/user.js';
 import { canManageRequirement } from '../services/access.js';
+import { notifyTrainerOfApplicationUpdate } from '../services/trainer-notifications.js';
+import { withTransaction } from '../database.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -53,6 +56,8 @@ interface ApplicationRecord {
   interviewNotes: string;
   demoSlotAt: Date | null;
   decisionNote: string | null;
+  trainerRating: number | null;
+  trainerReview: string | null;
   canManage: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -107,6 +112,8 @@ function presentApplication(application: ApplicationRecord, includeTrainerContac
         }
       : null,
     decisionNote: application.decisionNote,
+    trainerRating: application.trainerRating ?? null,
+    trainerReview: application.trainerReview ?? null,
     canManage,
     createdAt: application.createdAt.toISOString(),
     updatedAt: application.updatedAt.toISOString(),
@@ -155,6 +162,38 @@ router.get('/notifications', requireRole('Vendor'), loadActor, async (request, r
     };
   });
   response.json({ data, pendingCount });
+});
+
+router.get('/trainer/notifications', requireRole('Trainer'), loadActor, async (request, response) => {
+  const actor = actorOf(request);
+  const filter = { recipientId: actor.userId };
+  const [notifications, unreadCount] = await Promise.all([
+    Notification.find(filter as never).sort({ createdAt: -1 }).limit(30).lean(),
+    Notification.countDocuments({ ...filter, readAt: null } as never),
+  ]);
+  const data: TrainerNotificationView[] = notifications.map((notification) => ({
+    id: String(notification['_id']),
+    kind: notification['kind'] as TrainerNotificationView['kind'],
+    requirementId: String(notification['requirementId']),
+    applicationId: notification['applicationId'] ? String(notification['applicationId']) : null,
+    title: String(notification['title']),
+    message: String(notification['message']),
+    createdAt: (notification['createdAt'] as Date).toISOString(),
+    readAt: notification['readAt'] ? (notification['readAt'] as Date).toISOString() : null,
+  }));
+  response.json({ data, unreadCount });
+});
+
+router.patch('/trainer/notifications/:notificationId/read', requireRole('Trainer'), loadActor, async (request, response) => {
+  const actor = actorOf(request);
+  const notificationId = objectId(request.params['notificationId'], 'notification id');
+  const notification = await Notification.findOne({ _id: notificationId, recipientId: actor.userId } as never);
+  if (!notification) throw notFound('Notification');
+  if (!notification.readAt) {
+    notification.readAt = new Date();
+    await notification.save();
+  }
+  response.json({ data: { id: String(notification._id), readAt: notification.readAt.toISOString() } });
 });
 
 router.get('/requirements/:requirementId/mine', requireRole('Trainer'), loadActor, async (request, response) => {
@@ -264,7 +303,17 @@ router.patch('/:applicationId/interview', requireRole('Admin', 'Vendor'), loadAc
     demoSlotAt: null,
     status: 'InterviewScheduled',
   });
-  await application.save();
+  await withTransaction(async (session) => {
+    await application.save(session ? { session } : undefined);
+    await notifyTrainerOfApplicationUpdate({
+      recipientId: application.trainerId as Types.ObjectId,
+      kind: 'ApplicationUpdate',
+      requirementId: requirement._id,
+      applicationId: application._id,
+      title: 'Interview scheduled',
+      message: `Your interview is scheduled for ${scheduledAt.toISOString()}.`,
+    }, session);
+  });
   await application.populate([
     { path: 'trainerId', select: 'name email phone photoUrl' },
     { path: 'requirementId', select: 'title city startDate endDate' },
@@ -326,7 +375,57 @@ router.patch('/:applicationId/decision', requireRole('Admin', 'Vendor'), loadAct
     throw new HttpError(409, `This application is already ${application.status.toLowerCase()}`);
   }
   application.set({ status: input.status, decisionNote: input.decisionNote, ...(input.status === 'Rejected' ? { demoSlotAt: null } : {}) });
-  await application.save();
+  const decisionTitle = input.status === 'Accepted' ? 'Application selected' : input.status === 'Rejected' ? 'Application update' : 'Application on hold';
+  const decisionMessage = input.decisionNote?.trim() || (input.status === 'Accepted'
+    ? 'The vendor selected you for this training.'
+    : input.status === 'OnHold' ? 'The vendor placed your application on hold.' : 'The vendor updated your application.');
+  await withTransaction(async (session) => {
+    await application.save(session ? { session } : undefined);
+    await notifyTrainerOfApplicationUpdate({
+      recipientId: application.trainerId as Types.ObjectId,
+      kind: 'ApplicationUpdate',
+      requirementId: requirement._id,
+      applicationId: application._id,
+      title: decisionTitle,
+      message: decisionMessage,
+    }, session);
+  });
+  await application.populate([
+    { path: 'trainerId', select: 'name email phone photoUrl' },
+    { path: 'requirementId', select: 'title city startDate endDate' },
+  ]);
+  response.json({ data: presentApplication(application.toObject() as unknown as ApplicationRecord, false, true) });
+});
+
+router.patch('/:applicationId/review', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
+  const actor = actorOf(request);
+  const applicationId = objectId(request.params['applicationId'], 'application id');
+  const input = parseBody(TrainerProjectReviewSchema, request.body, 'trainer review');
+  const application = await Application.findOne({ _id: applicationId, deletedAt: null } as never);
+  if (!application) throw notFound('Application');
+  const requirement = await Requirement.findOne({ _id: application.requirementId, deletedAt: null } as never).lean();
+  if (!requirement) throw notFound('Requirement');
+  if (!canManageRequirement(actor, requirement as unknown as { organizationId: Types.ObjectId })) {
+    throw new HttpError(403, 'Only the posting organization can rate this trainer');
+  }
+  if (application.status !== 'Accepted') throw new HttpError(409, 'Only a selected trainer can be rated');
+  const endDate = (requirement.endDate as Date).toISOString().slice(0, 10);
+  if (endDate >= new Date().toISOString().slice(0, 10)) {
+    throw new HttpError(409, 'Trainer ratings are available after the training end date');
+  }
+  const review = input.review?.trim() || null;
+  application.set({ trainerRating: input.rating, trainerReview: review, trainerReviewedAt: new Date() });
+  await withTransaction(async (session) => {
+    await application.save(session ? { session } : undefined);
+    await notifyTrainerOfApplicationUpdate({
+      recipientId: application.trainerId as Types.ObjectId,
+      kind: 'ProjectRating',
+      requirementId: requirement._id,
+      applicationId: application._id,
+      title: 'Project performance rated',
+      message: `The vendor rated your project performance ${input.rating} out of 5.`,
+    }, session);
+  });
   await application.populate([
     { path: 'trainerId', select: 'name email phone photoUrl' },
     { path: 'requirementId', select: 'title city startDate endDate' },
