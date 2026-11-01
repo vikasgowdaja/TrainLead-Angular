@@ -69,6 +69,7 @@ export interface TrainerProfileView {
   phone: string | null;
   photoUrl: string | null;
   resumeUrl: string | null;
+  resumeFileName: string | null;
 }
 
 export interface AuthSession {

@@ -10,6 +10,7 @@ const UserSchema = new Schema(
     photoPublicId: { type: String, default: null },
     resumeUrl: { type: String, default: null },
     resumePublicId: { type: String, default: null },
+    resumeFileName: { type: String, default: null },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: RoleSchema.options, required: true, index: true },
     organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', default: null, index: true },

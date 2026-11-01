@@ -6,6 +6,15 @@ import { ResumePreview } from '../../resume-preview';
 import { MarketplaceService } from '../../core/marketplace.service';
 import { describeHttpError } from '../../core/http-error';
 
+function resumeNameFromUrl(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    return decodeURIComponent(new URL(url).pathname.split('/').pop() ?? '') || null;
+  } catch {
+    return null;
+  }
+}
+
 @Component({
   selector: 'app-trainer-profile',
   imports: [RouterLink, ResumePreview],
@@ -96,7 +105,7 @@ export class TrainerProfilePage {
   }
 
   private setProfile(profile: TrainerProfileView): void {
-    this.profile.set(profile);
+    this.profile.set({ ...profile, resumeFileName: profile.resumeFileName || resumeNameFromUrl(profile.resumeUrl) });
     this.name.set(profile.name);
     this.email.set(profile.email ?? '');
     this.phone.set(profile.phone ?? '');

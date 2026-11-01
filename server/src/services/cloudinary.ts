@@ -8,6 +8,16 @@ interface UploadedAsset {
   publicId: string;
 }
 
+function uploadError(error: unknown): HttpError {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String(error.code)
+    : '';
+  if (code === 'show_original_customer_untrusted') {
+    return new HttpError(503, 'Cloudinary has restricted uploads for this account. Contact Cloudinary Support to review the account, then retry.');
+  }
+  return new HttpError(502, 'Cloudinary could not store this file.');
+}
+
 function configureCloudinary(): void {
   const cloudName = process.env['CLOUDINARY_CLOUD_NAME'];
   const apiKey = process.env['CLOUDINARY_API_KEY'];
@@ -32,7 +42,7 @@ export function uploadTrainerAsset(buffer: Buffer, userId: string, kind: Trainer
       },
       (error, result) => {
         if (error || !result?.secure_url || !result.public_id) {
-          reject(new HttpError(502, 'Cloudinary could not store this file.'));
+          reject(uploadError(error));
           return;
         }
         resolve({ url: result.secure_url, publicId: result.public_id });

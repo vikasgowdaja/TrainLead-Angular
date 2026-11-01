@@ -34,7 +34,7 @@ function flushDashboard(fixture: ReturnType<typeof TestBed.createComponent<Marke
   http.expectOne((request) => request.url === '/api/requirements').flush({ data: [summary], page: 1, limit: 10, total: 1, hasMore: false });
   http.expectOne('/api/requirements/stats').flush({ data: stats });
   for (const request of http.match('/api/trainer-profile/me')) {
-    request.flush({ data: { id: '1', name: 'Ananya Rao', email: 'a@b.co', phone: null, photoUrl: profilePhotoUrl, resumeUrl: null } });
+    request.flush({ data: { id: '1', name: 'Ananya Rao', email: 'a@b.co', phone: null, photoUrl: profilePhotoUrl, resumeUrl: null, resumeFileName: null } });
   }
   fixture.detectChanges();
 }

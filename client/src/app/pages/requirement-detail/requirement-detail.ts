@@ -45,6 +45,7 @@ export class RequirementDetailPage {
   protected readonly contactPhoneInput = signal(this.auth.currentUser()?.phone ?? '');
   protected readonly resumeUrl = signal('');
   private readonly savedResumeUrl = signal('');
+  protected readonly savedResumeFileName = signal<string | null>(null);
   protected readonly githubUrl = signal('');
   protected readonly linkedinUrl = signal('');
   protected readonly leetcodeUrl = signal('');
@@ -106,6 +107,7 @@ export class RequirementDetailPage {
       next: ({ data }) => {
         const resumeUrl = data.resumeUrl?.trim() ?? '';
         this.savedResumeUrl.set(resumeUrl);
+        this.savedResumeFileName.set(data.resumeFileName ?? file.name);
         this.resumeUrl.set(resumeUrl);
         this.successMessage.set('Resume uploaded. Its link is ready for your application.');
       },
@@ -253,11 +255,20 @@ export class RequirementDetailPage {
       next: ({ data }) => {
         const resumeUrl = data.resumeUrl?.trim() ?? '';
         this.savedResumeUrl.set(resumeUrl);
+        this.savedResumeFileName.set(data.resumeFileName?.trim() || this.resumeNameFromUrl(resumeUrl));
         if (!this.resumeUrl()) this.resumeUrl.set(resumeUrl);
         if (!this.contactPhoneInput()) this.contactPhoneInput.set(data.phone ?? '');
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });
+  }
+
+  private resumeNameFromUrl(url: string): string | null {
+    try {
+      return decodeURIComponent(new URL(url).pathname.split('/').pop() ?? '') || null;
+    } catch {
+      return null;
+    }
   }
 
   private loadApplications(): void {

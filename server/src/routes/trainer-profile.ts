@@ -44,7 +44,7 @@ function validFileSignature(file: Express.Multer.File, kind: TrainerAssetKind): 
   return file.mimetype === 'image/webp' && file.buffer.toString('ascii', 0, 4) === 'RIFF' && file.buffer.toString('ascii', 8, 12) === 'WEBP';
 }
 
-function presentProfile(user: { _id: unknown; name: string; email?: string | null; phone?: string | null; photoUrl?: string | null; resumeUrl?: string | null }): TrainerProfileView {
+function presentProfile(user: { _id: unknown; name: string; email?: string | null; phone?: string | null; photoUrl?: string | null; resumeUrl?: string | null; resumeFileName?: string | null }): TrainerProfileView {
   return {
     id: String(user._id),
     name: user.name,
@@ -52,12 +52,13 @@ function presentProfile(user: { _id: unknown; name: string; email?: string | nul
     phone: user.phone ?? null,
     photoUrl: user.photoUrl ?? null,
     resumeUrl: user.resumeUrl ?? null,
+    resumeFileName: user.resumeFileName ?? null,
   };
 }
 
 router.get('/me', async (request, response) => {
   const actor = actorOf(request);
-  const user = await User.findOne({ _id: actor.userId, deletedAt: null }).select('name email phone photoUrl resumeUrl').lean();
+  const user = await User.findOne({ _id: actor.userId, deletedAt: null }).select('name email phone photoUrl resumeUrl resumeFileName').lean();
   if (!user) throw new HttpError(404, 'Trainer profile not found.');
   response.json({ data: presentProfile(user) });
 });
@@ -70,7 +71,7 @@ router.put('/me', async (request, response) => {
       { _id: actor.userId, role: 'Trainer', deletedAt: null } as never,
       { $set: { name: input.name, email: input.email, phone: input.phone } },
       { new: true, runValidators: true },
-    ).select('name email phone photoUrl resumeUrl');
+    ).select('name email phone photoUrl resumeUrl resumeFileName');
     if (!user) throw new HttpError(404, 'Trainer profile not found.');
     response.json({ data: presentProfile(user.toObject()) });
   } catch (error) {
@@ -92,12 +93,16 @@ function uploadRoute(kind: TrainerAssetKind): RequestHandler[] {
     const asset = await uploadTrainerAsset(file.buffer, String(actor.userId), kind);
     const fields = kind === 'photo'
       ? { photoUrl: asset.url, photoPublicId: asset.publicId }
-      : { resumeUrl: asset.url, resumePublicId: asset.publicId };
+      : {
+          resumeUrl: asset.url,
+          resumePublicId: asset.publicId,
+          resumeFileName: file.originalname.replace(/\\/g, '/').split('/').pop()?.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 120) || 'resume.pdf',
+        };
     const user = await User.findOneAndUpdate(
       { _id: actor.userId, role: 'Trainer', deletedAt: null } as never,
       { $set: fields },
       { new: true },
-    ).select('name email phone photoUrl resumeUrl');
+    ).select('name email phone photoUrl resumeUrl resumeFileName');
     if (!user) throw new HttpError(404, 'Trainer profile not found.');
     response.json({ data: presentProfile(user.toObject()) });
   }];
