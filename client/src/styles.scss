@@ -195,6 +195,9 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); }
 .application-panel, .applications-panel { padding-top: 16px; border-top: 1px solid var(--line); }
 .application-card { margin: 12px 0; padding: 14px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
 .application-card-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.application-feedback { margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--brand); background: color-mix(in srgb, var(--brand) 7%, var(--panel)); color: var(--ink); font-size: 13px; }
+.application-feedback p { margin: 4px 0 0; white-space: pre-wrap; }
+.application-feedback-input { max-width: 640px; margin: 12px 0; }
 .application-card-heading p { margin: 5px 0; color: var(--muted); font-size: 13px; }
 .application-notice { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border: 1px solid #b66b26; border-radius: 3px; background: #fff0d9; color: #824612; font-size: 10px; font-weight: 700; }
 .application-notice { text-decoration: none; cursor: pointer; }

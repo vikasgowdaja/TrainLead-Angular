@@ -113,8 +113,10 @@ describe('application workflow schemas', () => {
     }).success).toBe(false);
   });
 
-  it('only allows accepted or rejected decisions', () => {
+  it('allows accepted, rejected, and on-hold decisions with optional feedback', () => {
     expect(ApplicationDecisionSchema.safeParse({ status: 'Accepted' }).success).toBe(true);
+    expect(ApplicationDecisionSchema.safeParse({ status: 'Rejected', decisionNote: 'Review fundamentals.' }).success).toBe(true);
+    expect(ApplicationDecisionSchema.safeParse({ status: 'OnHold', decisionNote: 'We will follow up.' }).success).toBe(true);
     expect(ApplicationDecisionSchema.safeParse({ status: 'Applied' }).success).toBe(false);
   });
 });

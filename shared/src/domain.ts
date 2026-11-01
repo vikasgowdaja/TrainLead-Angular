@@ -10,7 +10,7 @@ export const ORG_MEMBER_ROLES = ['owner', 'recruiter'] as const;
 export const SOURCE_TYPES = ['Manual', 'WhatsApp', 'Email', 'Import'] as const;
 export const INBOX_STATUSES = ['Pending', 'Extracted', 'Failed', 'Converted', 'Discarded'] as const;
 export const REQUIREMENT_SORTS = ['newest', 'oldest', 'upcoming', 'updated', 'start'] as const;
-export const APPLICATION_STATUSES = ['Applied', 'InterviewScheduled', 'Accepted', 'Rejected', 'Withdrawn'] as const;
+export const APPLICATION_STATUSES = ['Applied', 'InterviewScheduled', 'OnHold', 'Accepted', 'Rejected', 'Withdrawn'] as const;
 export const INTERVIEW_PROVIDERS = ['Google Meet', 'Zoom', 'Microsoft Teams'] as const;
 
 export type Role = (typeof ROLES)[number];

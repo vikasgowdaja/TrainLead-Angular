@@ -316,8 +316,11 @@ router.patch('/:applicationId/decision', requireRole('Admin', 'Vendor'), loadAct
   if (!canManageRequirement(actor, requirement as unknown as { organizationId: Types.ObjectId })) {
     throw new HttpError(403, 'Only the posting organization can decide this application');
   }
-  if (application.status !== 'InterviewScheduled' && input.status === 'Accepted') {
+  if (!['InterviewScheduled', 'OnHold'].includes(application.status) && input.status === 'Accepted') {
     throw new HttpError(409, 'Schedule the video interview before accepting this application');
+  }
+  if (input.status === 'OnHold' && application.status !== 'InterviewScheduled' && application.status !== 'OnHold') {
+    throw new HttpError(409, 'Schedule the video interview before placing this application on hold');
   }
   if (application.status === 'Accepted' || application.status === 'Rejected' || application.status === 'Withdrawn') {
     throw new HttpError(409, `This application is already ${application.status.toLowerCase()}`);

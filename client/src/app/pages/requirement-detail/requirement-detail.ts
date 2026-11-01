@@ -2,7 +2,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { DemoSlotInput } from '@trainlead/shared';
-import type { ApplicationView, DemoSlotView, RequirementDetail, RequirementStatus, SourceType, SourceView, TrainerProfileView } from '@trainlead/shared/domain';
+import type { ApplicationStatus, ApplicationView, DemoSlotView, RequirementDetail, RequirementStatus, SourceType, SourceView, TrainerProfileView } from '@trainlead/shared/domain';
 import { SOURCE_TYPES } from '@trainlead/shared/domain';
 import { finalize } from 'rxjs';
 import { MarketplaceService } from '../../core/marketplace.service';
@@ -54,6 +54,7 @@ export class RequirementDetailPage {
   protected readonly applying = signal(false);
   protected readonly uploadingResume = signal(false);
   protected readonly applicationBusy = signal<string | null>(null);
+  protected readonly applicationFeedbackNotes = signal<Record<string, string>>({});
   protected readonly demoProvider = signal<'Google Meet' | 'Zoom' | 'Microsoft Teams'>('Google Meet');
   protected readonly demoMeetingUrl = signal('');
   protected readonly demoSlotDate = signal('');
@@ -304,13 +305,31 @@ export class RequirementDetailPage {
     });
   }
 
-  protected decideApplication(application: ApplicationView, status: 'Accepted' | 'Rejected'): void {
-    if (status === 'Accepted' && application.status !== 'InterviewScheduled') return;
+  protected applicationStatusLabel(status: ApplicationStatus): string {
+    if (status === 'OnHold') return 'On hold';
+    if (status === 'InterviewScheduled') return 'Interview scheduled';
+    return status;
+  }
+
+  protected applicationFeedback(application: ApplicationView): string {
+    return this.applicationFeedbackNotes()[application.id] ?? application.decisionNote ?? '';
+  }
+
+  protected updateApplicationFeedback(application: ApplicationView, value: string): void {
+    this.applicationFeedbackNotes.update((notes) => ({ ...notes, [application.id]: value }));
+  }
+
+  protected decideApplication(application: ApplicationView, status: 'Accepted' | 'Rejected' | 'OnHold'): void {
+    if (status === 'Accepted' && application.status !== 'InterviewScheduled' && application.status !== 'OnHold') return;
+    if (status === 'OnHold' && application.status !== 'InterviewScheduled') return;
     this.applicationBusy.set(application.id);
-    this.api.decideApplication(application.id, { status, decisionNote: null }).pipe(finalize(() => this.applicationBusy.set(null))).subscribe({
+    this.api.decideApplication(application.id, { status, decisionNote: this.applicationFeedback(application).trim() || null }).pipe(finalize(() => this.applicationBusy.set(null))).subscribe({
       next: ({ data }) => {
         this.replaceApplication(data);
-        this.successMessage.set(status === 'Accepted' ? 'Trainer accepted. Contact details are now available.' : 'Application rejected.');
+        this.applicationFeedbackNotes.update((notes) => ({ ...notes, [application.id]: data.decisionNote ?? '' }));
+        this.successMessage.set(status === 'Accepted'
+          ? 'Trainer selected. Contact details are now available.'
+          : status === 'OnHold' ? 'Application placed on hold. Feedback sent to the trainer.' : 'Application rejected. Feedback sent to the trainer.');
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });

@@ -43,7 +43,7 @@
               @for (notification of applicationNotifications(); track notification.applicationId) {
                 <a class="notification-entry" [routerLink]="['/requirements', notification.requirementId]" [fragment]="'application-' + notification.applicationId" (click)="closeNotifications()">
                   <span class="material-symbols-outlined notification-entry-icon" aria-hidden="true">{{ notification.status === 'Applied' ? 'person_add' : 'update' }}</span>
-                  <span class="notification-entry-copy"><strong>{{ notification.status === 'Applied' ? 'New trainer application' : 'Application ' + notification.status }}</strong><span>{{ notification.trainerName }} · {{ notification.requirementTitle }}</span><time>{{ notification.updatedAt | date: 'short' }}</time></span>
+                  <span class="notification-entry-copy"><strong>{{ notification.status === 'Applied' ? 'New trainer application' : notification.status === 'OnHold' ? 'Application on hold' : 'Application ' + notification.status }}</strong><span>{{ notification.trainerName }} · {{ notification.requirementTitle }}</span><time>{{ notification.updatedAt | date: 'short' }}</time></span>
                 </a>
               }
             </section>

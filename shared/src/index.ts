@@ -244,7 +244,7 @@ export const InterviewScheduleSchema = z.object({
 });
 
 export const ApplicationDecisionSchema = z.object({
-  status: z.enum(['Accepted', 'Rejected']),
+  status: z.enum(['Accepted', 'Rejected', 'OnHold']),
   decisionNote: optionalText(500),
 });
 
