@@ -2,8 +2,9 @@
   <section class="requirement-detail" aria-labelledby="requirement-title">
     <a class="back-link" routerLink="/">&larr; Back to requirements</a>
     @if (loading()) { <div class="requirement-skeleton" aria-hidden="true"></div> }
-    @else if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p><button class="secondary-button" type="button" (click)="load()">Retry</button> }
+    @else if (loadError(); as message) { <p class="form-error" role="alert">{{ message }}</p><button class="secondary-button" type="button" (click)="load()">Retry</button> }
     @else if (requirement(); as item) {
+      @if (errorMessage(); as message) { <div class="error-toast" role="alert"><span>{{ message }}</span><button class="error-toast-dismiss" type="button" aria-label="Dismiss error" (click)="errorMessage.set(null)"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></div> }
       @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
       <header class="detail-hero">
         <div class="detail-hero-copy">
@@ -55,6 +56,7 @@
                 <label class="field"><span>End time</span><input type="time" [value]="demoSlotEndTime()" (input)="demoSlotEndTime.set($any($event.target).value)" /></label>
                 <label class="field"><span>Slot interval</span><select [value]="demoSlotInterval()" (change)="demoSlotInterval.set(+$any($event.target).value)"><option [value]="15">Every 15 minutes</option><option [value]="30">Every 30 minutes</option><option [value]="60">Every hour</option></select></label>
                 <button class="secondary-button" type="button" [disabled]="savingDemoSlots()" (click)="addDemoSlots()">Add time slots</button>
+                @if (demoSlotError(); as message) { <p class="demo-slot-error" role="alert">{{ message }}</p> }
               </div>
               <div class="demo-slot-list">
                 @for (slot of item.demoSlots; track slot.scheduledAt) {
@@ -125,7 +127,8 @@
           <section class="detail-card summary-card">
             <p class="eyebrow">COMMERCIALS</p><h2>Payment</h2>
             <dl class="summary-list">
-              @if (item.canManage) { <div><dt>Budget range</dt><dd>{{ item.budgetMin ?? '—' }} – {{ item.budgetMax ?? '—' }} / day</dd></div><div><dt>Terms</dt><dd>{{ item.paymentTerms || 'Not specified' }}</dd></div> }
+              <div><dt>Daily remuneration</dt><dd>{{ item.budgetMin ?? '—' }} – {{ item.budgetMax ?? '—' }} / day</dd></div>
+              <div><dt>Terms</dt><dd>{{ item.paymentTerms || 'Not specified' }}</dd></div>
               <div><dt>Payment date</dt><dd>{{ item.paymentDueDate ? formatDate(item.paymentDueDate) : 'Not specified' }}</dd></div>
             </dl>
           </section>

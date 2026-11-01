@@ -107,6 +107,10 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); }
 .danger-button { border-color: #bd4d3d; color: #bd4d3d; }
 .state-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 6px; color: var(--ink); }
 .success-toast { margin: 12px 0; padding: 10px 14px; border-left: 3px solid var(--brand); background: color-mix(in srgb, var(--brand) 9%, var(--panel)); color: var(--ink); font-size: 13px; }
+.error-toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; padding: 10px 12px 10px 14px; border-left: 3px solid #bd4d3d; background: color-mix(in srgb, #bd4d3d 8%, var(--panel)); color: var(--ink); font-size: 13px; }
+.error-toast-dismiss { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
+.error-toast-dismiss:hover, .error-toast-dismiss:focus-visible { background: color-mix(in srgb, #bd4d3d 12%, var(--panel)); color: var(--ink); }
+.error-toast-dismiss .material-symbols-outlined { font-size: 18px; }
 .error-banner { border-color: #bd4d3d; color: #a23c30; }
 .error-banner button { min-height: var(--control-height, 44px); padding: 0 12px; border: 1px solid currentColor; border-radius: var(--control-radius, 6px); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .empty-state { padding: 32px 18px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); text-align: center; }
@@ -174,6 +178,7 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); }
 .source-history .source-create .field:nth-child(3) { grid-column: 1 / -1; }
 .detail-timestamps { margin: 12px 0 0; text-align: right; }
 .demo-slot-list { margin-top: 14px; }
+.demo-slot-error { grid-column: 1 / -1; margin: 0; color: #bd4d3d; font-size: 12px; }
 .application-panel, .applications-panel { padding-top: 18px; }
 .source-detail { display: grid; gap: 5px; padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
 .source-detail > span, .source-detail time { color: var(--muted); font-size: 12px; }

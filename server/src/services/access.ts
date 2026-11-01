@@ -17,9 +17,14 @@ export function isOwnOrganization(actor: Actor, organizationId: Types.ObjectId |
   return Boolean(organizationId && actor.organizationId?.equals(organizationId));
 }
 
-/** Edit, delete, change status and see private terms (rates, contacts, original messages). */
+/** Edit, delete, change status and access owner-only contacts and original messages. */
 export function canManageRequirement(actor: Actor, requirement: { organizationId: Types.ObjectId }): boolean {
   return actor.role === 'Admin' || (actor.role === 'Vendor' && isOwnOrganization(actor, requirement.organizationId));
+}
+
+/** Trainers need rates and payment terms to assess a marketplace requirement. */
+export function canViewRequirementCommercials(actor: Actor, requirement: { organizationId: Types.ObjectId }): boolean {
+  return actor.role === 'Trainer' || canManageRequirement(actor, requirement);
 }
 
 export function canSeeRequirement(actor: Actor, requirement: { organizationId: Types.ObjectId; status: string; deletedAt?: Date | null }): boolean {

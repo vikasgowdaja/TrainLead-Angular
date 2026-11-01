@@ -30,7 +30,7 @@ import { Application } from '../models/application.js';
 import { Requirement, type RequirementDoc } from '../models/requirement.js';
 import { RequirementSource } from '../models/requirement-source.js';
 import { InboxItem } from '../models/inbox-item.js';
-import { canManageRequirement, visibilityFilter } from '../services/access.js';
+import { canManageRequirement, canViewRequirementCommercials, visibilityFilter } from '../services/access.js';
 import { autoGroup, computeMatchKey, findSimilar, groupManually, refreshGroup, ungroup } from '../services/grouping.js';
 import { canonicalSkillKey, resolveSkills } from '../services/skills.js';
 import { extractRequirement, extractRequirementImage } from '../services/requirement-extraction.js';
@@ -310,6 +310,7 @@ async function createRequirement(
 
 async function requirementDetail(requirement: RequirementRecord, actor: ReturnType<typeof actorOf>): Promise<RequirementDetail> {
   const canManage = canManageRequirement(actor, requirement);
+  const canSeeCommercials = canViewRequirementCommercials(actor, requirement);
   const [maps, groupDocuments] = await Promise.all([
     presentationMaps([requirement], actor),
     requirement.groupId
@@ -372,9 +373,9 @@ async function requirementDetail(requirement: RequirementRecord, actor: ReturnTy
     description: requirement.description,
     domain: requirement.domain,
     experienceRequired: requirement.experienceRequired,
-    budgetMin: canManage ? requirement.budgetMin : null,
-    budgetMax: canManage ? requirement.budgetMax : null,
-    paymentTerms: canManage ? requirement.paymentTerms : null,
+    budgetMin: canSeeCommercials ? requirement.budgetMin : null,
+    budgetMax: canSeeCommercials ? requirement.budgetMax : null,
+    paymentTerms: canSeeCommercials ? requirement.paymentTerms : null,
     organizationDetail: organization
       ? {
           ...toOrganizationPublic(organization),

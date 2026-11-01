@@ -30,6 +30,7 @@ export class RequirementDetailPage {
   protected readonly sourceType = signal<SourceType>('Manual');
   protected readonly sourceGroup = signal('');
   protected readonly sourceText = signal('');
+  protected readonly loadError = signal<string | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly successMessage = signal<string | null>(null);
   protected readonly myApplication = signal<ApplicationView | null>(null);
@@ -59,6 +60,7 @@ export class RequirementDetailPage {
   protected readonly demoSlotStartTime = signal('16:00');
   protected readonly demoSlotEndTime = signal('18:30');
   protected readonly demoSlotInterval = signal(30);
+  protected readonly demoSlotError = signal<string | null>(null);
   protected readonly selectedDemoSlot = signal('');
   protected readonly savingDemoSlots = signal(false);
 
@@ -68,6 +70,7 @@ export class RequirementDetailPage {
 
   protected load(): void {
     this.loading.set(true);
+    this.loadError.set(null);
     this.errorMessage.set(null);
     this.api.getRequirement(this.id).pipe(finalize(() => this.loading.set(false))).subscribe({
       next: ({ data }) => {
@@ -84,7 +87,7 @@ export class RequirementDetailPage {
           this.loadMyApplication();
         }
       },
-      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+      error: (error: unknown) => this.loadError.set(describeHttpError(error)),
     });
   }
 
@@ -195,20 +198,39 @@ export class RequirementDetailPage {
     const date = this.demoSlotDate();
     const startTime = this.demoSlotStartTime();
     const endTime = this.demoSlotEndTime();
+    const meetingUrl = this.demoMeetingUrl().trim();
     const interval = this.demoSlotInterval();
-    const startAt = new Date(`${date}T${startTime}`).getTime();
-    const endAt = new Date(`${date}T${endTime}`).getTime();
-    if (!item || !date || !Number.isFinite(startAt) || !Number.isFinite(endAt) || startAt > endAt || !this.demoMeetingUrl().trim()) {
-      this.errorMessage.set('Choose a valid date and time range, and enter a meeting link.');
+    this.demoSlotError.set(null);
+    if (!date) {
+      this.demoSlotError.set('Choose a date for these demo slots.');
       return;
     }
+    if (!startTime || !endTime) {
+      this.demoSlotError.set('Set both a start time and an end time.');
+      return;
+    }
+    const startAt = new Date(`${date}T${startTime}`).getTime();
+    const endAt = new Date(`${date}T${endTime}`).getTime();
+    if (!Number.isFinite(startAt) || !Number.isFinite(endAt)) {
+      this.demoSlotError.set('Enter valid start and end times.');
+      return;
+    }
+    if (startAt > endAt) {
+      this.demoSlotError.set('The end time must be after the start time.');
+      return;
+    }
+    if (!meetingUrl) {
+      this.demoSlotError.set('Enter a meeting link for these slots.');
+      return;
+    }
+    if (!item) return;
 
     const availableTimes: number[] = [];
     for (let time = startAt; time <= endAt; time += interval * 60_000) {
       if (time > Date.now()) availableTimes.push(time);
     }
     if (!availableTimes.length) {
-      this.errorMessage.set('Choose a time range that includes a future slot.');
+      this.demoSlotError.set('Choose a time range that includes a future slot.');
       return;
     }
 
@@ -216,16 +238,16 @@ export class RequirementDetailPage {
     const existingTimes = new Set(item.demoSlots.map(({ scheduledAt }) => new Date(scheduledAt).getTime()));
     const newTimes = availableTimes.filter((time) => !existingTimes.has(time));
     if (!newTimes.length) {
-      this.errorMessage.set('Those demo times are already published.');
+      this.demoSlotError.set('Those demo times are already published.');
       return;
     }
     if (slots.length + newTimes.length > 20) {
-      this.errorMessage.set('A requirement can have up to 20 demo slots. Remove a slot or shorten the time range.');
+      this.demoSlotError.set('A requirement can have up to 20 demo slots. Remove a slot or shorten the time range.');
       return;
     }
     slots.push(...newTimes.map((time) => ({
       provider: this.demoProvider(),
-      meetingUrl: this.demoMeetingUrl().trim(),
+      meetingUrl,
       scheduledAt: new Date(time).toISOString(),
     })));
     this.saveDemoSlots(slots);
@@ -255,13 +277,14 @@ export class RequirementDetailPage {
 
   private saveDemoSlots(slots: DemoSlotInput[]): void {
     this.savingDemoSlots.set(true);
+    this.demoSlotError.set(null);
     this.api.updateRequirementDemoSlots(this.id, { slots }).pipe(finalize(() => this.savingDemoSlots.set(false))).subscribe({
       next: ({ data }) => {
         this.requirement.set(data);
         this.demoSlotDate.set('');
         this.successMessage.set('Demo slots updated.');
       },
-      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+      error: (error: unknown) => this.demoSlotError.set(describeHttpError(error)),
     });
   }
 

@@ -208,7 +208,7 @@ export interface RequirementDetail extends RequirementSummary {
   description: string;
   domain: string;
   experienceRequired: string;
-  /** Rates and payment terms are only shown to the posting organization and admins. */
+  /** Rates and payment terms are visible to trainers and the posting organization/admins. */
   budgetMin: number | null;
   budgetMax: number | null;
   paymentTerms: string | null;
