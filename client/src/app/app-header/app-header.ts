@@ -30,6 +30,7 @@ export class AppHeader {
   protected readonly accountMenuOpen = signal(false);
   protected readonly notificationsLoading = signal(false);
   protected readonly notificationsError = signal<string | null>(null);
+  protected readonly loggingOut = signal(false);
   protected readonly initials = computed(() =>
     (this.auth.currentUser()?.name ?? '')
       .split(/\s+/)
@@ -94,7 +95,9 @@ export class AppHeader {
   }
 
   protected logout(): void {
-    this.auth.logout().subscribe(() => void this.router.navigateByUrl('/login'));
+    if (this.loggingOut()) return;
+    this.loggingOut.set(true);
+    this.auth.logout().pipe(finalize(() => this.loggingOut.set(false))).subscribe(() => void this.router.navigateByUrl('/login'));
   }
 
   private loadApplicationNotifications(): void {

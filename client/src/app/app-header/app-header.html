@@ -61,7 +61,7 @@
               <a routerLink="/admin/users" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">group</span>Users</a>
               <a routerLink="/admin/organizations" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">domain</span>Organizations</a>
             }
-            <button type="button" (click)="closeAccountMenu(); logout()"><span class="material-symbols-outlined" aria-hidden="true">logout</span>Sign out</button>
+            <button type="button" [disabled]="loggingOut()" (click)="closeAccountMenu(); logout()"><span class="material-symbols-outlined" aria-hidden="true">logout</span>{{ loggingOut() ? 'Signing out…' : 'Sign out' }}</button>
           </nav>
         }
       </div>

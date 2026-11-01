@@ -19,6 +19,10 @@ describe('health endpoint', () => {
     });
   });
 
+  it('trusts only the local reverse proxy for client IP forwarding', () => {
+    expect(app.get('trust proxy')).toBe('loopback');
+  });
+
   it('returns a small service status without exposing configuration', async () => {
     const response = await fetch(`${baseUrl}/api/health`);
 

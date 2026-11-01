@@ -25,6 +25,7 @@ const logger = pino({
 });
 
 const app = express();
+app.set('trust proxy', 'loopback');
 const allowedOrigins = (process.env.CORS_ORIGINS ?? 'http://127.0.0.1:4200,http://localhost:4200')
   .split(',')
   .map((origin) => origin.trim())
