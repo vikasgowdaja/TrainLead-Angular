@@ -17,7 +17,7 @@ Contact: MTD NITHIN
 9480273090`;
 
 describe('smart requirement extraction', () => {
-  it('maps the MTD WhatsApp message without inventing mode or student count', () => {
+  it('maps the MTD WhatsApp message with a reviewable Offline default and no student count', () => {
     const result = extractRequirement(mtdMessage, 'text', new Date('2026-11-01T00:00:00Z'));
 
     expect(result.extracted).toMatchObject({
@@ -37,11 +37,13 @@ describe('smart requirement extraction', () => {
       food: 'Provided',
       stay: 'Provided',
     });
-    expect(result.extracted.mode).toBeUndefined();
+    expect(result.extracted.mode).toBe('Offline');
+    expect(result.confidence['mode']).toBe('low');
     expect(result.extracted.studentCount).toBeUndefined();
     expect(result.sourceDetails).toEqual({ organizationName: 'MTD', contactPerson: 'Nithin', phone: '9480273090', email: null });
     expect(result.estimatedTotalBudget).toBe(24000);
-    expect(result.missingFields).toContain('mode');
+    expect(result.missingFields).not.toContain('mode');
+    expect(result.warnings).toContain('Delivery mode was not stated; Offline was selected by default. Confirm it before publishing.');
   });
 
   it('maps daily budget columns from tab-separated tables', () => {
@@ -53,7 +55,7 @@ describe('smart requirement extraction', () => {
       budgetMin: 4000, budgetMax: 4000, paymentDueDate: '2026-11-25',
     });
     expect(result.estimatedTotalBudget).toBe(24000);
-    expect(result.extracted.mode).toBeUndefined();
+    expect(result.extracted.mode).toBe('Offline');
   });
 
   it('corrects the common screenshot OCR substitution for AngularJS', () => {

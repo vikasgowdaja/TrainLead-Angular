@@ -89,12 +89,24 @@ body {
 .source-create { display: grid; gap: 10px; margin: 12px 0; padding: 14px; border: 1px dashed var(--line); border-radius: 6px; }
 .source-actions { margin-top: 8px; }
 .source-actions .field { min-width: min(280px, 100%); }
+.application-panel, .applications-panel { padding-top: 16px; border-top: 1px solid var(--line); }
+.application-card { margin: 12px 0; padding: 14px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+.application-card-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.application-card-heading p { margin: 5px 0; color: var(--muted); font-size: 13px; }
+.interview-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0; padding: 14px; border: 1px dashed var(--line); border-radius: 6px; }
+.interview-invite { display: grid; justify-items: start; gap: 8px; margin: 12px 0; padding: 14px; border: 1px dashed var(--brand); border-radius: 6px; background: color-mix(in srgb, var(--brand) 5%, var(--panel)); }
+.application-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.application-actions .primary-button, .application-actions .danger-button { min-width: 120px; }
 .member-add, .skill-suggestion { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 12px; margin: 12px 0; padding: 14px; border: 1px dashed var(--line); border-radius: 6px; }
 .member-help { margin: 6px 0 12px; color: var(--muted); font-size: 13px; }
 .member-help p { margin: 5px 0; }
 .member-help ol { margin: 6px 0 10px; padding-left: 22px; }
 .member-help li { margin: 3px 0; }
 .member-add button:disabled { opacity: .55; cursor: not-allowed; }
+.card-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+.card-edit-button { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--line); border-radius: 6px; color: var(--brand); text-decoration: none; }
+.card-edit-button:hover { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 8%, var(--panel)); }
+.card-edit-button .material-symbols-outlined { font-size: 19px; }
 .import-mode-switch { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .import-mode-switch button, .smart-import-tabs button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
 .import-mode-switch button.is-active, .smart-import-tabs button.is-active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, var(--panel)); color: var(--brand); }
@@ -162,6 +174,6 @@ body {
 .sort-button select { border: 0; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
 .sort-button select:focus-visible { outline: 2px solid var(--brand); }
 @media (max-width: 700px) { .member-add, .skill-suggestion { grid-template-columns: 1fr; } }
-@media (max-width: 480px) { .capture-meta, .inbox-review, .skill-edit-grid { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .capture-meta, .inbox-review, .skill-edit-grid, .interview-editor { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .dashboard-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); } .search-field { grid-column: 1 / -1; } .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .organization-form, .requirement-form { grid-template-columns: 1fr; } .field-wide { grid-column: auto; } .support-fields, .dashboard-tools, .detail-grid { grid-template-columns: 1fr; } .search-field { grid-column: auto; } }

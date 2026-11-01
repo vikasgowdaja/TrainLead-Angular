@@ -34,6 +34,64 @@
       </dl>
       <section class="detail-section"><h2>Required skills</h2><div class="card-tags">@for (skill of item.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div></section>
       <section class="detail-section support-strip"><span class="support-item"><span class="support-name">Travel</span><span class="support-status">{{ item.travel }}</span></span><span class="support-item"><span class="support-name">Food</span><span class="support-status">{{ item.food }}</span></span><span class="support-item"><span class="support-name">Stay</span><span class="support-status">{{ item.stay }}</span></span></section>
+      @if (isTrainer()) {
+        <section class="detail-section application-panel" aria-labelledby="application-title">
+          <h2 id="application-title">Your application</h2>
+          @if (!myApplicationLoaded()) { <p class="auth-subtitle">Checking application status…</p> }
+          @else if (myApplication(); as application) {
+            <p>Status: <span class="role-pill">{{ application.status }}</span></p>
+            @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
+            @if (application.interview; as interview) {
+              <div class="interview-invite">
+                <strong>{{ interview.provider }} interview</strong>
+                <time>{{ interview.scheduledAt | date: 'medium' }}</time>
+                @if (interview.notes) { <p>{{ interview.notes }}</p> }
+                <a class="primary-button" [href]="interview.meetingUrl" target="_blank" rel="noopener noreferrer">Open interview link</a>
+              </div>
+            }
+            @if (application.status === 'Accepted' && (application.trainer.email || application.trainer.phone)) {
+              <p>Vendor has accepted your application. Contact: {{ application.trainer.email ?? application.trainer.phone }}</p>
+            }
+            @if (application.status === 'Rejected' && application.decisionNote) { <p>{{ application.decisionNote }}</p> }
+          } @else if (item.status === 'Open') {
+            <p class="auth-subtitle">Apply to this training requirement. The Vendor will review your application and may schedule a video interview.</p>
+            <label class="field"><span>Application note</span><textarea rows="3" [value]="coverNote()" (input)="coverNote.set($any($event.target).value)" placeholder="Briefly describe your relevant training experience"></textarea></label>
+            <label class="field"><span>Expected daily rate (optional)</span><input type="number" min="0" [value]="expectedRate()" (input)="expectedRate.set($any($event.target).value)" /></label>
+            <button class="primary-button" type="button" [disabled]="applying()" (click)="apply()">{{ applying() ? 'Applying…' : 'Apply to requirement' }}</button>
+          } @else {
+            <p class="auth-subtitle">Applications are closed for this requirement.</p>
+          }
+        </section>
+      }
+      @if (item.canManage) {
+        <section class="detail-section applications-panel" aria-labelledby="applications-title">
+          <h2 id="applications-title">Trainer applications <span class="count-mark">{{ applications().length }}</span></h2>
+          @for (application of applications(); track application.id) {
+            <article class="application-card">
+              <div class="application-card-heading"><div><strong>{{ application.trainer.name }}</strong><p>Status: <span class="role-pill">{{ application.status }}</span></p></div><span class="panel-footnote">Applied {{ application.createdAt | date: 'mediumDate' }}</span></div>
+              @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
+              @if (application.expectedRate !== null) { <p>Expected daily rate: {{ application.expectedRate | currency: 'INR' }}</p> }
+              @if (application.status === 'Applied' || application.status === 'InterviewScheduled') {
+                <div class="interview-editor">
+                  <label class="field"><span>Meeting platform</span><select [value]="interviewDraft(application).provider" (change)="updateInterviewDraft(application, 'provider', $any($event.target).value)">@for (provider of interviewProviders; track provider) { <option [value]="provider">{{ provider }}</option> }</select></label>
+                  <label class="field"><span>Google Meet / Zoom / Teams link</span><input type="url" [value]="interviewDraft(application).meetingUrl" (input)="updateInterviewDraft(application, 'meetingUrl', $any($event.target).value)" placeholder="https://meet.google.com/..." /></label>
+                  <label class="field"><span>Interview date and time</span><input type="datetime-local" [value]="interviewDraft(application).scheduledAt" (input)="updateInterviewDraft(application, 'scheduledAt', $any($event.target).value)" /></label>
+                  <label class="field"><span>Interview note</span><input [value]="interviewDraft(application).notes" (input)="updateInterviewDraft(application, 'notes', $any($event.target).value)" /></label>
+                  <button class="secondary-button field-wide" type="button" [disabled]="applicationBusy() === application.id" (click)="scheduleInterview(application)">{{ application.interview ? 'Update interview' : 'Schedule interview' }}</button>
+                </div>
+                <div class="application-actions">
+                  <button class="primary-button" type="button" [disabled]="application.status !== 'InterviewScheduled' || applicationBusy() === application.id" (click)="decideApplication(application, 'Accepted')">Accept trainer</button>
+                  <button class="danger-button" type="button" [disabled]="applicationBusy() === application.id" (click)="decideApplication(application, 'Rejected')">Reject</button>
+                </div>
+              }
+              @if (application.status === 'Accepted') {
+                <p>Accepted trainer contact: {{ application.trainer.email ?? application.trainer.phone ?? 'Not provided' }}</p>
+                @if (application.interview) { <p>{{ application.interview.provider }} · <a [href]="application.interview.meetingUrl" target="_blank" rel="noopener noreferrer">Interview link</a></p> }
+              }
+            </article>
+          } @empty { <p class="auth-subtitle">No trainer applications yet.</p> }
+        </section>
+      }
       <section class="detail-section"><h2>Organization</h2><p>{{ item.organizationDetail.name }} · {{ item.organizationDetail.verificationStatus }}</p>
         @if (item.organizationDetail.contact; as contact) { <p>{{ contact.name }} · {{ contact.email ?? contact.phone }}</p> }
       </section>

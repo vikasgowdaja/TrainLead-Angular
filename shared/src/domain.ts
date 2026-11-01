@@ -10,6 +10,8 @@ export const ORG_MEMBER_ROLES = ['owner', 'recruiter'] as const;
 export const SOURCE_TYPES = ['Manual', 'WhatsApp', 'Email', 'Import'] as const;
 export const INBOX_STATUSES = ['Pending', 'Extracted', 'Failed', 'Converted', 'Discarded'] as const;
 export const REQUIREMENT_SORTS = ['newest', 'oldest', 'upcoming', 'updated', 'start'] as const;
+export const APPLICATION_STATUSES = ['Applied', 'InterviewScheduled', 'Accepted', 'Rejected', 'Withdrawn'] as const;
+export const INTERVIEW_PROVIDERS = ['Google Meet', 'Zoom', 'Microsoft Teams'] as const;
 
 export type Role = (typeof ROLES)[number];
 export type SupportStatus = (typeof SUPPORT_STATUSES)[number];
@@ -21,6 +23,8 @@ export type OrgMemberRole = (typeof ORG_MEMBER_ROLES)[number];
 export type SourceType = (typeof SOURCE_TYPES)[number];
 export type InboxStatus = (typeof INBOX_STATUSES)[number];
 export type RequirementSort = (typeof REQUIREMENT_SORTS)[number];
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+export type InterviewProvider = (typeof INTERVIEW_PROVIDERS)[number];
 
 export const STATUS_TRANSITIONS: Record<RequirementStatus, readonly RequirementStatus[]> = {
   Draft: ['Open', 'Cancelled'],
@@ -161,6 +165,20 @@ export interface RequirementDetail extends RequirementSummary {
   sources: SourceView[];
   groupMembers: GroupMemberView[];
   allowedStatuses: RequirementStatus[];
+}
+
+export interface ApplicationView {
+  id: string;
+  requirement: { id: string; title: string; city: string; startDate: string; endDate: string };
+  trainer: { id: string; name: string; email: string | null; phone: string | null };
+  coverNote: string;
+  expectedRate: number | null;
+  status: ApplicationStatus;
+  interview: { provider: InterviewProvider; meetingUrl: string; scheduledAt: string; notes: string } | null;
+  decisionNote: string | null;
+  canManage: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DashboardStats {

@@ -9,6 +9,7 @@ import { pinoHttp } from 'pino-http';
 import { connectDatabase } from './database.js';
 import { HttpError } from './http.js';
 import { adminRouter } from './routes/admin.js';
+import { applicationsRouter } from './routes/applications.js';
 import { authRouter } from './routes/auth.js';
 import { inboxRouter } from './routes/inbox.js';
 import { organizationsRouter } from './routes/organizations.js';
@@ -70,6 +71,8 @@ app.get('/api/health', (_request, response) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/applications', applicationsRouter);
+app.use('/api/applications', applicationsRouter);
 app.use('/api/organizations', organizationsRouter);
 app.use('/api/requirements', requirementsRouter);
 app.use('/api/skills', skillsRouter);

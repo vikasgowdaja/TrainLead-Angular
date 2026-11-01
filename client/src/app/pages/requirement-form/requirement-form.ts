@@ -239,7 +239,7 @@ export class RequirementFormPage {
       skills: fields.skills?.join(', ') ?? '',
       city: fields.city ?? '',
       state: fields.state ?? '',
-      mode: fields.mode ?? '',
+      mode: fields.mode ?? 'Offline',
       startDate: fields.startDate ?? '',
       endDate: fields.endDate ?? '',
       durationDays: fields.durationDays ?? 1,
@@ -260,6 +260,8 @@ export class RequirementFormPage {
   protected save(publish: boolean): void {
     if (this.form.invalid || this.saving()) {
       this.form.markAllAsTouched();
+      const invalidFields = this.invalidFieldLabels();
+      this.errorMessage.set(`Cannot ${publish ? 'publish' : 'save draft'} yet. Check: ${invalidFields.join(', ')}.`);
       return;
     }
     if (this.existing() && !this.existing()!.canManage) {
@@ -299,5 +301,18 @@ export class RequirementFormPage {
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });
+  }
+
+  private invalidFieldLabels(): string[] {
+    const labels: Record<string, string> = {
+      title: 'Title', skills: 'Required skills', city: 'City', mode: 'Delivery mode',
+      startDate: 'Start date', endDate: 'End date', durationDays: 'Duration', audience: 'Target audience',
+      studentCount: 'Number of students', budgetMin: 'Budget minimum', budgetMax: 'Budget maximum',
+    };
+    const invalid = Object.entries(this.form.controls)
+      .filter(([, control]) => control.invalid)
+      .map(([name]) => labels[name] ?? name);
+    if (this.form.hasError('dateOrder')) invalid.push('End date must be on or after start date');
+    return [...new Set(invalid)];
   }
 }

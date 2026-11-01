@@ -1,7 +1,8 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type { InboxCaptureInput, OrganizationInput, RequirementInput, RequirementQuery, SmartExtractionRequest, SourceInput } from '@trainlead/shared';
+import type { ApplicationDecision, ApplyToRequirementInput, InboxCaptureInput, InterviewScheduleInput, OrganizationInput, RequirementInput, RequirementQuery, SmartExtractionRequest, SourceInput } from '@trainlead/shared';
 import type {
+  ApplicationView,
   DashboardStats,
   AdminAnalytics,
   ExtractedRequirement,
@@ -101,6 +102,26 @@ export class MarketplaceService {
 
   getRequirement(id: string): Observable<{ data: RequirementDetail }> {
     return this.http.get<{ data: RequirementDetail }>(`/api/requirements/${id}`);
+  }
+
+  applyToRequirement(requirementId: string, input: ApplyToRequirementInput): Observable<{ data: ApplicationView }> {
+    return this.http.post<{ data: ApplicationView }>(`/api/applications/requirements/${requirementId}`, input);
+  }
+
+  getMyApplication(requirementId: string): Observable<{ data: ApplicationView | null }> {
+    return this.http.get<{ data: ApplicationView | null }>(`/api/applications/requirements/${requirementId}/mine`);
+  }
+
+  listRequirementApplications(requirementId: string): Observable<{ data: ApplicationView[] }> {
+    return this.http.get<{ data: ApplicationView[] }>(`/api/applications/requirements/${requirementId}`);
+  }
+
+  scheduleApplicationInterview(applicationId: string, input: InterviewScheduleInput): Observable<{ data: ApplicationView }> {
+    return this.http.patch<{ data: ApplicationView }>(`/api/applications/${applicationId}/interview`, input);
+  }
+
+  decideApplication(applicationId: string, input: ApplicationDecision): Observable<{ data: ApplicationView }> {
+    return this.http.patch<{ data: ApplicationView }>(`/api/applications/${applicationId}/decision`, input);
   }
 
   extractRequirement(input: SmartExtractionRequest): Observable<{ data: SmartExtractionResult }> {

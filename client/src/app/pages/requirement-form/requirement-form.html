@@ -66,12 +66,12 @@
         <label class="field"><span>Required skills <small>(comma separated)</small></span><input formControlName="skills" placeholder="AngularJS, JavaScript" />@if (form.controls.skills.touched && form.controls.skills.invalid) { <small class="field-error">Add at least one skill.</small> }</label>
         <label class="field"><span>City</span><input formControlName="city" />@if (form.controls.city.touched && form.controls.city.invalid) { <small class="field-error">Enter the training city.</small> }</label>
         <label class="field"><span>State</span><input formControlName="state" /></label>
-        <label class="field"><span>Delivery mode</span><select formControlName="mode">@for (mode of modes; track mode) { <option [value]="mode">{{ mode }}</option> }</select></label>
-        <label class="field"><span>Start date</span><input type="date" formControlName="startDate" /></label>
-        <label class="field"><span>End date</span><input type="date" formControlName="endDate" /></label>
+        <label class="field"><span>Delivery mode</span><select formControlName="mode"><option value="">Select delivery mode</option>@for (mode of modes; track mode) { <option [value]="mode">{{ mode }}</option> }</select>@if (form.controls.mode.touched && form.controls.mode.invalid) { <small class="field-error">Confirm whether this training is Offline, Online, or Hybrid.</small> }</label>
+        <label class="field"><span>Start date</span><input type="date" formControlName="startDate" />@if (form.controls.startDate.touched && form.controls.startDate.invalid) { <small class="field-error">Enter the start date.</small> }</label>
+        <label class="field"><span>End date</span><input type="date" formControlName="endDate" />@if (form.controls.endDate.touched && form.controls.endDate.invalid) { <small class="field-error">Enter the end date.</small> }</label>
         @if (form.hasError('dateOrder') && form.controls.endDate.touched) { <small class="field-error field-wide">End date must be on or after start date.</small> }
         <label class="field"><span>Duration in days <small>(calculated from dates)</small></span><input type="number" min="1" formControlName="durationDays" readonly aria-readonly="true" /></label>
-        <label class="field"><span>Target audience</span><input formControlName="audience" placeholder="6th semester engineering students" /></label>
+        <label class="field"><span>Target audience</span><input formControlName="audience" placeholder="6th semester engineering students" />@if (form.controls.audience.touched && form.controls.audience.invalid) { <small class="field-error">Enter the target audience.</small> }</label>
         <label class="field"><span>Number of students</span><input type="number" min="1" formControlName="studentCount" /></label>
         <label class="field"><span>Experience requirements</span><input formControlName="experienceRequired" /></label>
         <label class="field"><span>Budget minimum</span><input type="number" min="0" formControlName="budgetMin" /></label>

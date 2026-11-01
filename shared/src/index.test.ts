@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AddMemberSchema, CreateRequirementSchema, RequirementInputSchema, RequirementQuerySchema, canTransition, skillKey } from './index.js';
+import { AddMemberSchema, ApplicationDecisionSchema, ApplyToRequirementSchema, CreateRequirementSchema, InterviewScheduleSchema, RequirementInputSchema, RequirementQuerySchema, canTransition, skillKey } from './index.js';
 
 const mysuru = {
   title: 'AngularJS foundations for engineering students',
@@ -47,6 +47,31 @@ describe('AddMemberSchema', () => {
     expect(AddMemberSchema.safeParse({ identifier: 'vendor@example.com', orgRole: 'recruiter' }).success).toBe(true);
     expect(AddMemberSchema.safeParse({ identifier: '+919876543210', orgRole: 'recruiter' }).success).toBe(true);
     expect(AddMemberSchema.safeParse({ identifier: 'Vikas Gowda J A', orgRole: 'recruiter' }).success).toBe(false);
+  });
+});
+
+describe('application workflow schemas', () => {
+  it('accepts a trainer note and optional expected rate', () => {
+    expect(ApplyToRequirementSchema.parse({ coverNote: 'AngularJS classroom experience', expectedRate: 4000 })).toMatchObject({
+      coverNote: 'AngularJS classroom experience', expectedRate: 4000,
+    });
+  });
+
+  it('accepts an HTTPS video interview link from the chosen provider', () => {
+    expect(InterviewScheduleSchema.safeParse({
+      provider: 'Google Meet',
+      meetingUrl: 'https://meet.google.com/abc-defg-hij',
+      scheduledAt: '2026-11-02T09:00:00+05:30',
+      notes: 'Please join five minutes early.',
+    }).success).toBe(true);
+    expect(InterviewScheduleSchema.safeParse({
+      provider: 'Zoom', meetingUrl: 'https://example.com/meeting', scheduledAt: '2026-11-02T09:00:00Z', notes: '',
+    }).success).toBe(false);
+  });
+
+  it('only allows accepted or rejected decisions', () => {
+    expect(ApplicationDecisionSchema.safeParse({ status: 'Accepted' }).success).toBe(true);
+    expect(ApplicationDecisionSchema.safeParse({ status: 'Applied' }).success).toBe(false);
   });
 });
 

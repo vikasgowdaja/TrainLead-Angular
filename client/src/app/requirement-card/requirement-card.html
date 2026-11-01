@@ -5,7 +5,14 @@
         <h3><a [routerLink]="['/requirements', requirement().id]">{{ requirement().title }}</a></h3>
         <span class="location"><span class="material-symbols-outlined" aria-hidden="true">location_on</span>{{ requirement().city }}</span>
       </div>
-      <span class="opportunity-label">{{ requirement().status }}</span>
+      <div class="card-actions">
+        @if (requirement().canManage) {
+          <a class="card-edit-button" [routerLink]="['/requirements', requirement().id, 'edit']" [attr.aria-label]="'Edit ' + requirement().title" title="Edit requirement">
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+          </a>
+        }
+        <span class="opportunity-label">{{ requirement().status }}</span>
+      </div>
     </div>
 
     <div class="card-tags">

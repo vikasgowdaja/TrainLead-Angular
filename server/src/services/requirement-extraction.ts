@@ -180,7 +180,10 @@ export function extractRequirement(input: string, inputType: 'text' | 'table' = 
   if (/\bonline\b/i.test(modeText)) set('mode', 'Online');
   else if (/\bhybrid\b/i.test(modeText)) set('mode', 'Hybrid');
   else if (/\boffline\b|on[- ]?site|in[- ]person|classroom/i.test(modeText)) set('mode', 'Offline');
-  else warnings.push('Delivery mode was not stated. Select a mode before saving.');
+  else {
+    set('mode', 'Offline', 'low');
+    warnings.push('Delivery mode was not stated; Offline was selected by default. Confirm it before publishing.');
+  }
 
   const startRaw = findValue(values, 'start date', 'start', 'from');
   const endRaw = findValue(values, 'end date', 'end', 'to');
@@ -276,7 +279,6 @@ export function extractRequirement(input: string, inputType: 'text' | 'table' = 
     return value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0);
   });
   if (missingFields.includes('studentCount')) warnings.push('Student count was not explicitly stated; leave it blank unless confirmed.');
-  if (!extracted['mode']) warnings.push('Delivery mode was not stated. Confirm it before publishing.');
   const estimatedTotalBudget = dailyRate !== null && extracted['durationDays'] ? dailyRate * extracted['durationDays'] : null;
   return {
     extracted,

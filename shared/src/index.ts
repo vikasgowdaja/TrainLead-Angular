@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
+  APPLICATION_STATUSES,
   DELIVERY_MODES,
+  INTERVIEW_PROVIDERS,
   INBOX_STATUSES,
   ORGANIZATION_TYPES,
   ORG_MEMBER_ROLES,
@@ -25,6 +27,8 @@ export const SelfServiceRoleSchema = RoleSchema.exclude(['Admin']);
 export const SupportStatusSchema = z.enum(SUPPORT_STATUSES);
 export const DeliveryModeSchema = z.enum(DELIVERY_MODES);
 export const RequirementStatusSchema = z.enum(REQUIREMENT_STATUSES);
+export const ApplicationStatusSchema = z.enum(APPLICATION_STATUSES);
+export const InterviewProviderSchema = z.enum(INTERVIEW_PROVIDERS);
 
 export const RegisterSchema = z
   .object({
@@ -150,6 +154,29 @@ export const CreateRequirementSchema = z.object({
 
 export const StatusChangeSchema = z.object({ status: RequirementStatusSchema });
 
+export const ApplyToRequirementSchema = z.object({
+  coverNote: text(2000).default(''),
+  expectedRate: z.number().nonnegative().nullable().default(null),
+});
+
+export const InterviewScheduleSchema = z.object({
+  provider: InterviewProviderSchema,
+  meetingUrl: z.url().refine((value) => {
+    const host = new URL(value).hostname.toLowerCase();
+    if (value.startsWith('http://')) return false;
+    if (host === 'meet.google.com') return true;
+    if (host === 'zoom.us' || host.endsWith('.zoom.us')) return true;
+    return host === 'teams.microsoft.com' || host.endsWith('.teams.microsoft.com') || host === 'teams.live.com';
+  }, 'Enter an HTTPS meeting link for the selected provider.'),
+  scheduledAt: z.iso.datetime({ offset: true }),
+  notes: text(500).default(''),
+});
+
+export const ApplicationDecisionSchema = z.object({
+  status: z.enum(['Accepted', 'Rejected']),
+  decisionNote: optionalText(500),
+});
+
 export const GroupRequirementsSchema = z.object({
   requirementIds: z.array(z.string().regex(/^[a-f0-9]{24}$/i)).min(2).max(50),
 });
@@ -216,6 +243,9 @@ export const InboxQuerySchema = z.object({
 
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
+export type ApplyToRequirementInput = z.input<typeof ApplyToRequirementSchema>;
+export type InterviewScheduleInput = z.input<typeof InterviewScheduleSchema>;
+export type ApplicationDecision = z.input<typeof ApplicationDecisionSchema>;
 export type OrganizationInput = z.infer<typeof OrganizationInputSchema>;
 export type RequirementInput = z.infer<typeof RequirementInputSchema>;
 export type SmartExtractionRequest = z.input<typeof SmartExtractionRequestSchema>;
