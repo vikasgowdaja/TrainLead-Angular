@@ -2,12 +2,13 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { TrainerProfileView } from '@trainlead/shared/domain';
 import { finalize } from 'rxjs';
+import { ResumePreview } from '../../resume-preview';
 import { MarketplaceService } from '../../core/marketplace.service';
 import { describeHttpError } from '../../core/http-error';
 
 @Component({
   selector: 'app-trainer-profile',
-  imports: [RouterLink],
+  imports: [RouterLink, ResumePreview],
   templateUrl: './trainer-profile.html',
 })
 export class TrainerProfilePage {

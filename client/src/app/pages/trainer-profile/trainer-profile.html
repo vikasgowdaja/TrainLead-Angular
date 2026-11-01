@@ -20,7 +20,7 @@
         <div class="trainer-resume-column">
           <span class="material-symbols-outlined" aria-hidden="true">description</span>
           <strong>{{ current.resumeUrl ? 'Resume saved' : 'No resume uploaded' }}</strong>
-          @if (current.resumeUrl) { <a [href]="current.resumeUrl" target="_blank" rel="noopener noreferrer">View current resume</a> }
+          @if (current.resumeUrl) { <app-resume-preview [url]="current.resumeUrl" /> }
           <label class="secondary-button trainer-file-button">{{ uploadingResume() ? 'Uploading…' : current.resumeUrl ? 'Replace resume' : 'Upload resume' }}<input type="file" accept="application/pdf,.pdf" [disabled]="uploadingResume()" (change)="onResumeSelected($event)" /></label>
           <small>PDF only · max 3 MB</small>
         </div>

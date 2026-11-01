@@ -132,6 +132,16 @@ body {
 .new-application { margin-left: 8px; color: #a45b20; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .trainer-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .trainer-links a { color: var(--brand); font-size: 13px; font-weight: 600; }
+.resume-preview-trigger { display: inline-flex; min-height: 34px; align-items: center; padding: 0 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--brand); font: inherit; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.resume-preview-trigger:hover { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 6%, var(--panel)); }
+.resume-preview-dialog { width: min(900px, calc(100vw - 24px)); height: min(92vh, 960px); max-width: none; max-height: none; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.resume-preview-dialog::backdrop { background: rgb(10 25 22 / 68%); }
+.resume-preview-header { display: flex; height: 54px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+.resume-preview-header h2 { margin: 0; font-family: 'Fraunces', Georgia, serif; font-size: 17px; font-weight: 560; }
+.resume-preview-header > div { display: flex; align-items: center; gap: 12px; }
+.resume-preview-header a { color: var(--brand); font-size: 12px; font-weight: 600; }
+.resume-preview-header button { display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--ink); cursor: pointer; }
+.resume-preview-dialog iframe { display: block; width: 100%; height: calc(100% - 54px); border: 0; background: #e8ecea; }
 .trainer-card-identity { display: flex; align-items: center; gap: 10px; }
 .trainer-card-photo, .trainer-card-photo-placeholder { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 50%; object-fit: cover; background: color-mix(in srgb, var(--brand) 12%, var(--panel)); color: var(--brand); }
 .trainer-profile-card { max-width: 860px; }
