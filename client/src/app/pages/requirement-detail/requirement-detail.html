@@ -1,153 +1,142 @@
-<main class="app-shell auth-page">
-  <section class="auth-card wide-card requirement-detail" aria-labelledby="requirement-title">
+<main class="app-shell requirement-page">
+  <section class="requirement-detail" aria-labelledby="requirement-title">
     <a class="back-link" routerLink="/">&larr; Back to requirements</a>
     @if (loading()) { <div class="requirement-skeleton" aria-hidden="true"></div> }
     @else if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p><button class="secondary-button" type="button" (click)="load()">Retry</button> }
     @else if (requirement(); as item) {
       @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
-      <p class="eyebrow">{{ item.organization.name }} <span>/</span> {{ item.status }}</p>
-      <h1 id="requirement-title">{{ item.title }}</h1>
-      <p class="auth-subtitle">{{ item.description || 'No description provided.' }}</p>
-      <div class="detail-toolbar">
+      <header class="detail-hero">
+        <div class="detail-hero-copy">
+          <p class="eyebrow">{{ item.organization.name }} <span>/</span> {{ item.status }}</p>
+          <h1 id="requirement-title">{{ item.title }}</h1>
+          <p class="detail-description">{{ item.description || 'No description provided.' }}</p>
+          <div class="detail-hero-meta"><span><span class="material-symbols-outlined" aria-hidden="true">location_on</span>{{ item.city }}{{ item.state ? ', ' + item.state : '' }}</span><span><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span>{{ formatDate(item.startDate) }} – {{ formatDate(item.endDate) }}</span><span><span class="material-symbols-outlined" aria-hidden="true">schedule</span>{{ item.durationDays }} days</span></div>
+        </div>
         @if (item.canManage) {
-          <button class="secondary-button" type="button" (click)="edit()">Edit</button>
-          <button class="secondary-button" type="button" (click)="duplicate()">Duplicate</button>
-          @if (item.groupId) { <button class="secondary-button" type="button" (click)="ungroup()">Ungroup</button> }
-          @for (status of item.allowedStatuses; track status) { <button class="secondary-button" type="button" [disabled]="saving()" (click)="changeStatus(status)">{{ status }}</button> }
-          <button class="danger-button" type="button" [disabled]="saving()" (click)="remove()">Delete</button>
-        }
-      </div>
-      <dl class="detail-grid">
-        <div><dt>Location</dt><dd>{{ item.city }}{{ item.state ? ', ' + item.state : '' }}</dd></div>
-        <div><dt>Delivery</dt><dd>{{ item.mode }}</dd></div>
-        <div><dt>Training dates</dt><dd>{{ formatDate(item.startDate) }} – {{ formatDate(item.endDate) }}</dd></div>
-        <div><dt>Duration</dt><dd>{{ item.durationDays }} days</dd></div>
-        <div><dt>Audience</dt><dd>{{ item.audience }}</dd></div>
-        <div><dt>Batch size</dt><dd>{{ item.studentCount ?? 'Not specified' }}</dd></div>
-        <div><dt>Domain</dt><dd>{{ item.domain || 'Not specified' }}</dd></div>
-        <div><dt>Experience</dt><dd>{{ item.experienceRequired || 'Not specified' }}</dd></div>
-        <div><dt>Payment date</dt><dd>{{ item.paymentDueDate ? formatDate(item.paymentDueDate) : 'Not specified' }}</dd></div>
-        @if (item.canManage) {
-          <div><dt>Budget range</dt><dd>{{ item.budgetMin ?? '—' }} – {{ item.budgetMax ?? '—' }}</dd></div>
-          <div><dt>Payment terms</dt><dd>{{ item.paymentTerms || 'Not specified' }}</dd></div>
-        }
-      </dl>
-      <section class="detail-section"><h2>Required skills</h2><div class="card-tags">@for (skill of item.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div></section>
-      <section class="detail-section support-strip"><span class="support-item"><span class="support-name">Travel</span><span class="support-status">{{ item.travel }}</span></span><span class="support-item"><span class="support-name">Food</span><span class="support-status">{{ item.food }}</span></span><span class="support-item"><span class="support-name">Stay</span><span class="support-status">{{ item.stay }}</span></span></section>
-      @if (item.canManage) {
-        <section class="detail-section" aria-labelledby="demo-slots-title">
-          <h2 id="demo-slots-title">Demo slots</h2>
-          <p class="auth-subtitle">Publish available times and one meeting link. Trainers can book a slot directly.</p>
-          <div class="demo-slot-editor">
-            <label class="field"><span>Meeting platform</span><select [value]="demoProvider()" (change)="demoProvider.set($any($event.target).value)"><option>Google Meet</option><option>Zoom</option><option>Microsoft Teams</option></select></label>
-            <label class="field"><span>Meeting link</span><input type="url" [value]="demoMeetingUrl()" (input)="demoMeetingUrl.set($any($event.target).value)" placeholder="https://meet.google.com/..." /></label>
-            <label class="field"><span>Available date and time</span><input type="datetime-local" [value]="demoSlotDateTime()" (input)="demoSlotDateTime.set($any($event.target).value)" /></label>
-            <button class="secondary-button" type="button" [disabled]="savingDemoSlots()" (click)="addDemoSlot()">Add slot</button>
+          <div class="detail-toolbar" aria-label="Requirement actions">
+            <button class="secondary-button" type="button" (click)="edit()">Edit</button>
+            <button class="secondary-button" type="button" (click)="duplicate()">Duplicate</button>
+            @if (item.groupId) { <button class="secondary-button" type="button" (click)="ungroup()">Ungroup</button> }
+            @for (status of item.allowedStatuses; track status) { <button class="secondary-button" type="button" [disabled]="saving()" (click)="changeStatus(status)">{{ status }}</button> }
+            <button class="danger-button" type="button" [disabled]="saving()" (click)="remove()">Delete</button>
           </div>
-          @for (slot of item.demoSlots; track slot.scheduledAt) {
-            <div class="demo-slot-row"><span>{{ slot.provider }} · {{ slot.scheduledAt | date: 'medium' }}</span><span class="role-pill">{{ slot.booked ? 'Booked' : slot.available ? 'Available' : 'Expired' }}</span>@if (!slot.booked) { <button class="text-button" type="button" [disabled]="savingDemoSlots()" (click)="removeDemoSlot(slot)">Remove</button> }</div>
-          } @empty { <p class="panel-footnote">No demo slots published.</p> }
-        </section>
-      }
-      @if (isTrainer()) {
-        <section class="detail-section application-panel" aria-labelledby="application-title">
-          <h2 id="application-title">Your application</h2>
-          @if (!myApplicationLoaded()) { <p class="auth-subtitle">Checking application status…</p> }
-          @else if (myApplication(); as application) {
-            <p>Status: <span class="role-pill">{{ application.status }}</span></p>
-            @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
-            @if (application.status === 'Applied') {
-              @if (item.demoSlots.length) {
-                <label class="field"><span>Choose an available demo slot</span><select [value]="selectedDemoSlot()" (change)="selectedDemoSlot.set($any($event.target).value)"><option value="">Select a time</option>@for (slot of item.demoSlots; track slot.scheduledAt) { @if (slot.available) { <option [value]="slot.scheduledAt">{{ slot.scheduledAt | date: 'medium' }} · {{ slot.provider }}</option> } }</select></label>
-                <button class="primary-button" type="button" [disabled]="applicationBusy() === application.id || !selectedDemoSlot()" (click)="bookDemoSlot()">{{ applicationBusy() === application.id ? 'Booking…' : 'Book demo slot' }}</button>
-              } @else { <p class="auth-subtitle">The Vendor has not published any demo slots yet.</p> }
-            }
-            @if (application.interview; as interview) {
-              <div class="interview-invite">
-                <strong>{{ interview.provider }} interview</strong>
-                <time>{{ interview.scheduledAt | date: 'medium' }}</time>
-                @if (interview.notes) { <p>{{ interview.notes }}</p> }
-                <a class="primary-button" [href]="interview.meetingUrl" target="_blank" rel="noopener noreferrer">Open interview link</a>
+        }
+      </header>
+
+      <div class="detail-layout">
+        <div class="detail-main-column">
+          <section class="detail-card" aria-labelledby="training-details-title">
+            <div class="detail-card-heading"><div><p class="eyebrow">THE TRAINING</p><h2 id="training-details-title">Program details</h2></div><span class="detail-mode">{{ item.mode }}</span></div>
+            <dl class="detail-grid">
+              <div><dt>Audience</dt><dd>{{ item.audience }}</dd></div>
+              <div><dt>Batch size</dt><dd>{{ item.studentCount ?? 'Not specified' }}</dd></div>
+              <div><dt>Domain</dt><dd>{{ item.domain || 'Not specified' }}</dd></div>
+              <div><dt>Experience</dt><dd>{{ item.experienceRequired || 'Not specified' }}</dd></div>
+            </dl>
+            <div class="detail-skill-block"><h3>Required skills</h3><div class="card-tags">@for (skill of item.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div></div>
+          </section>
+
+          @if (item.canManage) {
+            <section class="detail-card" aria-labelledby="demo-slots-title">
+              <div class="detail-card-heading"><div><p class="eyebrow">LIVE DEMO</p><h2 id="demo-slots-title">Demo slots</h2></div><span class="count-mark">{{ item.demoSlots.length }}</span></div>
+              <p class="detail-card-intro">Publish available times and a meeting link. Trainers can book a slot directly.</p>
+              <div class="demo-slot-editor">
+                <label class="field"><span>Meeting platform</span><select [value]="demoProvider()" (change)="demoProvider.set($any($event.target).value)"><option>Google Meet</option><option>Zoom</option><option>Microsoft Teams</option></select></label>
+                <label class="field"><span>Meeting link</span><input type="url" [value]="demoMeetingUrl()" (input)="demoMeetingUrl.set($any($event.target).value)" placeholder="https://meet.google.com/..." /></label>
+                <label class="field"><span>Available date and time</span><input type="datetime-local" [value]="demoSlotDateTime()" (input)="demoSlotDateTime.set($any($event.target).value)" /></label>
+                <button class="secondary-button" type="button" [disabled]="savingDemoSlots()" (click)="addDemoSlot()">Add slot</button>
               </div>
-            }
-            @if (application.status === 'Accepted' && (application.trainer.email || application.trainer.phone)) {
-              <p>Vendor has accepted your application. Contact: {{ application.trainer.email ?? application.trainer.phone }}</p>
-            }
-            @if (application.status === 'Rejected' && application.decisionNote) { <p>{{ application.decisionNote }}</p> }
-          } @else if (item.status === 'Open') {
-            <p class="auth-subtitle">Apply to this training requirement. The Vendor will review your application and may schedule a video interview.</p>
-            <label class="field"><span>Application note</span><textarea rows="3" [value]="coverNote()" (input)="coverNote.set($any($event.target).value)" placeholder="Briefly describe your relevant training experience"></textarea></label>
-            <label class="field"><span>Relevant skills <small>(comma separated)</small></span><input required [value]="skillsInput()" (input)="skillsInput.set($any($event.target).value)" placeholder="AngularJS, JavaScript" /></label>
-            <label class="field"><span>Expected daily rate (optional)</span><input type="number" min="0" [value]="expectedRate()" (input)="expectedRate.set($any($event.target).value)" /></label>
-            <div class="trainer-profile-links">
-              <label class="field"><span>Resume link (required)</span><input type="url" required [value]="resumeUrl()" (input)="resumeUrl.set($any($event.target).value)" placeholder="https://..." /></label>
-              <label class="field"><span>GitHub profile (required)</span><input type="url" required [value]="githubUrl()" (input)="githubUrl.set($any($event.target).value)" placeholder="https://github.com/username" /></label>
-              <label class="field"><span>LinkedIn profile (required)</span><input type="url" required [value]="linkedinUrl()" (input)="linkedinUrl.set($any($event.target).value)" placeholder="https://linkedin.com/in/username" /></label>
-              <label class="field"><span>LeetCode profile (required)</span><input type="url" required [value]="leetcodeUrl()" (input)="leetcodeUrl.set($any($event.target).value)" placeholder="https://leetcode.com/username" /></label>
-            </div>
-            <button class="primary-button" type="button" [disabled]="applying()" (click)="apply()">{{ applying() ? 'Applying…' : 'Apply to requirement' }}</button>
-          } @else {
-            <p class="auth-subtitle">Applications are closed for this requirement.</p>
+              <div class="demo-slot-list">
+                @for (slot of item.demoSlots; track slot.scheduledAt) {
+                  <div class="demo-slot-row"><span>{{ slot.provider }} · {{ slot.scheduledAt | date: 'medium' }}</span><span class="role-pill">{{ slot.booked ? 'Booked' : slot.available ? 'Available' : 'Expired' }}</span>@if (!slot.booked) { <button class="text-button" type="button" [disabled]="savingDemoSlots()" (click)="removeDemoSlot(slot)">Remove</button> }</div>
+                } @empty { <p class="panel-footnote">No demo slots published.</p> }
+              </div>
+            </section>
           }
-        </section>
-      }
-      @if (item.canManage) {
-        <section class="detail-section applications-panel" id="applications" aria-labelledby="applications-title">
-          <h2 id="applications-title">Trainer applications <span class="count-mark">{{ applications().length }}</span></h2>
-          @for (application of applications(); track application.id) {
-            <article class="application-card" [id]="'application-' + application.id" [class.is-notification-target]="notificationTarget === 'application-' + application.id">
-              <div class="application-card-heading"><div><strong>{{ application.trainer.name }}</strong><p>Status: <span class="role-pill">{{ application.status }}</span>@if (application.status === 'Applied') { <span class="new-application">New application</span> }</p></div><span class="panel-footnote">Applied {{ application.createdAt | date: 'mediumDate' }}</span></div>
-              <div class="trainer-skill-list" aria-label="Trainer skills">@for (skill of application.trainer.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div>
-              <nav class="trainer-links" aria-label="Trainer profile links">
-                <a [href]="application.trainer.profileLinks.resume" target="_blank" rel="noopener noreferrer">Resume</a>
-                <a [href]="application.trainer.profileLinks.github" target="_blank" rel="noopener noreferrer">GitHub</a>
-                <a [href]="application.trainer.profileLinks.linkedin" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-                <a [href]="application.trainer.profileLinks.leetcode" target="_blank" rel="noopener noreferrer">LeetCode</a>
-              </nav>
-              @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
-              @if (application.expectedRate !== null) { <p>Expected daily rate: {{ application.expectedRate | currency: 'INR' }}</p> }
-              @if (application.status === 'Applied' || application.status === 'InterviewScheduled') {
-                <div class="application-actions">
-                  <button class="primary-button" type="button" [disabled]="application.status !== 'InterviewScheduled' || applicationBusy() === application.id" (click)="decideApplication(application, 'Accepted')">Accept trainer</button>
-                  <button class="danger-button" type="button" [disabled]="applicationBusy() === application.id" (click)="decideApplication(application, 'Rejected')">Reject</button>
+
+          @if (isTrainer()) {
+            <section class="detail-card application-panel" aria-labelledby="application-title">
+              <div class="detail-card-heading"><div><p class="eyebrow">YOUR RESPONSE</p><h2 id="application-title">Your application</h2></div>@if (myApplication(); as application) { <span class="role-pill">{{ application.status }}</span> }</div>
+              @if (!myApplicationLoaded()) { <p class="detail-card-intro">Checking application status…</p> }
+              @else if (myApplication(); as application) {
+                @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
+                @if (application.status === 'Applied') {
+                  @if (item.demoSlots.length) {
+                    <label class="field"><span>Choose an available demo slot</span><select [value]="selectedDemoSlot()" (change)="selectedDemoSlot.set($any($event.target).value)"><option value="">Select a time</option>@for (slot of item.demoSlots; track slot.scheduledAt) { @if (slot.available) { <option [value]="slot.scheduledAt">{{ slot.scheduledAt | date: 'medium' }} · {{ slot.provider }}</option> } }</select></label>
+                    <button class="primary-button" type="button" [disabled]="applicationBusy() === application.id || !selectedDemoSlot()" (click)="bookDemoSlot()">{{ applicationBusy() === application.id ? 'Booking…' : 'Book demo slot' }}</button>
+                  } @else { <p class="detail-card-intro">The Vendor has not published any demo slots yet.</p> }
+                }
+                @if (application.interview; as interview) {
+                  <div class="interview-invite"><strong>{{ interview.provider }} interview</strong><time>{{ interview.scheduledAt | date: 'medium' }}</time>@if (interview.notes) { <p>{{ interview.notes }}</p> }<a class="primary-button" [href]="interview.meetingUrl" target="_blank" rel="noopener noreferrer">Open interview link</a></div>
+                }
+                @if (application.status === 'Accepted' && (application.trainer.email || application.trainer.phone)) { <p>Vendor has accepted your application. Contact: {{ application.trainer.email ?? application.trainer.phone }}</p> }
+                @if (application.status === 'Rejected' && application.decisionNote) { <p>{{ application.decisionNote }}</p> }
+              } @else if (item.status === 'Open') {
+                <p class="detail-card-intro">Apply to this training requirement. The Vendor will review your application and may schedule a video interview.</p>
+                <label class="field"><span>Application note</span><textarea rows="3" [value]="coverNote()" (input)="coverNote.set($any($event.target).value)" placeholder="Briefly describe your relevant training experience"></textarea></label>
+                <label class="field"><span>Relevant skills <small>(comma separated)</small></span><input required [value]="skillsInput()" (input)="skillsInput.set($any($event.target).value)" placeholder="AngularJS, JavaScript" /></label>
+                <label class="field"><span>Expected daily rate (optional)</span><input type="number" min="0" [value]="expectedRate()" (input)="expectedRate.set($any($event.target).value)" /></label>
+                <div class="trainer-profile-links">
+                  <label class="field"><span>Resume link (required)</span><input type="url" required [value]="resumeUrl()" (input)="resumeUrl.set($any($event.target).value)" placeholder="https://..." /></label>
+                  <label class="field"><span>GitHub profile (required)</span><input type="url" required [value]="githubUrl()" (input)="githubUrl.set($any($event.target).value)" placeholder="https://github.com/username" /></label>
+                  <label class="field"><span>LinkedIn profile (required)</span><input type="url" required [value]="linkedinUrl()" (input)="linkedinUrl.set($any($event.target).value)" placeholder="https://linkedin.com/in/username" /></label>
+                  <label class="field"><span>LeetCode profile (required)</span><input type="url" required [value]="leetcodeUrl()" (input)="leetcodeUrl.set($any($event.target).value)" placeholder="https://leetcode.com/username" /></label>
                 </div>
-              }
-              @if (application.status === 'Accepted') {
-                <p>Accepted trainer contact: {{ application.trainer.email ?? application.trainer.phone ?? 'Not provided' }}</p>
-                @if (application.interview) { <p>{{ application.interview.provider }} · <a [href]="application.interview.meetingUrl" target="_blank" rel="noopener noreferrer">Interview link</a></p> }
-              }
-            </article>
-          } @empty { <p class="auth-subtitle">No trainer applications yet.</p> }
-        </section>
-      }
-      <section class="detail-section"><h2>Organization</h2><p>{{ item.organizationDetail.name }} · {{ item.organizationDetail.verificationStatus }}</p>
-        @if (item.organizationDetail.contact; as contact) { <p>{{ contact.name }} · {{ contact.email ?? contact.phone }}</p> }
-      </section>
-      <section class="detail-section"><h2>Sources <span class="count-mark">{{ item.sourceCount }}</span></h2>
+                <button class="primary-button" type="button" [disabled]="applying()" (click)="apply()">{{ applying() ? 'Applying…' : 'Apply to requirement' }}</button>
+              } @else { <p class="detail-card-intro">Applications are closed for this requirement.</p> }
+            </section>
+          }
+
+          @if (item.canManage) {
+            <section class="detail-card applications-panel" id="applications" aria-labelledby="applications-title">
+              <div class="detail-card-heading"><div><p class="eyebrow">CANDIDATES</p><h2 id="applications-title">Trainer applications</h2></div><span class="count-mark">{{ applications().length }}</span></div>
+              @for (application of applications(); track application.id) {
+                <article class="application-card" [id]="'application-' + application.id" [class.is-notification-target]="notificationTarget === 'application-' + application.id">
+                  <div class="application-card-heading"><div><strong>{{ application.trainer.name }}</strong><p>Status: <span class="role-pill">{{ application.status }}</span>@if (application.status === 'Applied') { <span class="new-application">New application</span> }</p></div><span class="panel-footnote">Applied {{ application.createdAt | date: 'mediumDate' }}</span></div>
+                  <div class="trainer-skill-list" aria-label="Trainer skills">@for (skill of application.trainer.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div>
+                  <nav class="trainer-links" aria-label="Trainer profile links"><a [href]="application.trainer.profileLinks.resume" target="_blank" rel="noopener noreferrer">Resume</a><a [href]="application.trainer.profileLinks.github" target="_blank" rel="noopener noreferrer">GitHub</a><a [href]="application.trainer.profileLinks.linkedin" target="_blank" rel="noopener noreferrer">LinkedIn</a><a [href]="application.trainer.profileLinks.leetcode" target="_blank" rel="noopener noreferrer">LeetCode</a></nav>
+                  @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
+                  @if (application.expectedRate !== null) { <p>Expected daily rate: {{ application.expectedRate | currency: 'INR' }}</p> }
+                  @if (application.status === 'Applied' || application.status === 'InterviewScheduled') { <div class="application-actions"><button class="primary-button" type="button" [disabled]="application.status !== 'InterviewScheduled' || applicationBusy() === application.id" (click)="decideApplication(application, 'Accepted')">Accept trainer</button><button class="danger-button" type="button" [disabled]="applicationBusy() === application.id" (click)="decideApplication(application, 'Rejected')">Reject</button></div> }
+                  @if (application.status === 'Accepted') { <p>Accepted trainer contact: {{ application.trainer.email ?? application.trainer.phone ?? 'Not provided' }}</p>@if (application.interview) { <p>{{ application.interview.provider }} · <a [href]="application.interview.meetingUrl" target="_blank" rel="noopener noreferrer">Interview link</a></p> } }
+                </article>
+              } @empty { <p class="detail-card-intro">No trainer applications yet.</p> }
+            </section>
+          }
+        </div>
+
+        <aside class="detail-sidebar" aria-label="Requirement summary">
+          <section class="detail-card summary-card">
+            <p class="eyebrow">COMMERCIALS</p><h2>Payment</h2>
+            <dl class="summary-list">
+              @if (item.canManage) { <div><dt>Budget range</dt><dd>{{ item.budgetMin ?? '—' }} – {{ item.budgetMax ?? '—' }} / day</dd></div><div><dt>Terms</dt><dd>{{ item.paymentTerms || 'Not specified' }}</dd></div> }
+              <div><dt>Payment date</dt><dd>{{ item.paymentDueDate ? formatDate(item.paymentDueDate) : 'Not specified' }}</dd></div>
+            </dl>
+          </section>
+          <section class="detail-card summary-card">
+            <p class="eyebrow">ON-SITE SUPPORT</p><h2>Travel &amp; stay</h2>
+            <dl class="summary-list"><div><dt>Travel</dt><dd>{{ item.travel }}</dd></div><div><dt>Food</dt><dd>{{ item.food }}</dd></div><div><dt>Stay</dt><dd>{{ item.stay }}</dd></div></dl>
+          </section>
+          <section class="detail-card summary-card">
+            <p class="eyebrow">POSTED BY</p><h2>{{ item.organizationDetail.name }}</h2><span class="role-pill">{{ item.organizationDetail.verificationStatus }}</span>
+            @if (item.organizationDetail.contact; as contact) { <p class="organization-contact">{{ contact.name }}<br />{{ contact.email ?? contact.phone }}</p> }
+          </section>
+          @if (item.groupMembers.length > 1) {
+            <section class="detail-card summary-card"><p class="eyebrow">SOURCING</p><h2>Related vendor posts</h2>@for (member of item.groupMembers; track member.id) { <p class="related-vendor">{{ member.organization.name }} · {{ member.title }} · {{ member.status }}</p> }</section>
+          }
+        </aside>
+      </div>
+
+      <section class="detail-card source-history" aria-labelledby="sources-title">
+        <div class="detail-card-heading"><div><p class="eyebrow">AUDIT TRAIL</p><h2 id="sources-title">Source history</h2></div><span class="count-mark">{{ item.sourceCount }}</span></div>
         @if (item.canManage) {
-          <div class="source-create">
-            <label class="field"><span>Source type</span><select [value]="sourceType()" (change)="sourceType.set($any($event.target).value)">@for (type of sourceTypes; track type) { <option [value]="type">{{ type }}</option> }</select></label>
-            <label class="field"><span>Group name</span><input [value]="sourceGroup()" (input)="sourceGroup.set($any($event.target).value)" /></label>
-            <label class="field"><span>Original message</span><textarea rows="2" [value]="sourceText()" (input)="sourceText.set($any($event.target).value)"></textarea></label>
-            <button class="secondary-button" type="button" [disabled]="savingSource()" (click)="addSource()">{{ savingSource() ? 'Saving…' : 'Add source post' }}</button>
-          </div>
+          <div class="source-create"><label class="field"><span>Source type</span><select [value]="sourceType()" (change)="sourceType.set($any($event.target).value)">@for (type of sourceTypes; track type) { <option [value]="type">{{ type }}</option> }</select></label><label class="field"><span>Group name</span><input [value]="sourceGroup()" (input)="sourceGroup.set($any($event.target).value)" /></label><label class="field"><span>Original message</span><textarea rows="2" [value]="sourceText()" (input)="sourceText.set($any($event.target).value)"></textarea></label><button class="secondary-button" type="button" [disabled]="savingSource()" (click)="addSource()">{{ savingSource() ? 'Saving…' : 'Add source post' }}</button></div>
         }
         @for (source of item.sources; track source.id) {
-          <article class="source-detail"><strong>{{ source.organization.name }}</strong><span>{{ source.sourceType }} · {{ source.groupName || 'No group' }}</span><time>{{ source.importedAt | date: 'medium' }}</time>
-            @if (source.rawText) { <p>{{ source.rawText }}</p> }
-            @if (source.canManage) {
-              <div class="source-actions">
-                <label class="field"><span>Edit group name</span><input [value]="source.groupName" (change)="updateSourceGroup(source, $any($event.target).value)" /></label>
-                <button class="danger-button" type="button" (click)="removeSource(source)">Remove source</button>
-              </div>
-            }
-          </article>
-        } @empty { <p class="auth-subtitle">No source messages recorded.</p> }
+          <article class="source-detail"><strong>{{ source.organization.name }}</strong><span>{{ source.sourceType }} · {{ source.groupName || 'No group' }}</span><time>{{ source.importedAt | date: 'medium' }}</time>@if (source.rawText) { <p>{{ source.rawText }}</p> }@if (source.canManage) { <div class="source-actions"><label class="field"><span>Edit group name</span><input [value]="source.groupName" (change)="updateSourceGroup(source, $any($event.target).value)" /></label><button class="danger-button" type="button" (click)="removeSource(source)">Remove source</button></div> }</article>
+        } @empty { <p class="detail-card-intro">No source messages recorded.</p> }
       </section>
-      @if (item.groupMembers.length > 1) {
-        <section class="detail-section"><h2>Related vendor posts</h2>@for (member of item.groupMembers; track member.id) { <p>{{ member.organization.name }} · {{ member.title }} · {{ member.status }}</p> }</section>
-      }
-      <p class="panel-footnote">Created {{ item.createdAt | date: 'medium' }} · Updated {{ item.updatedAt | date: 'medium' }}</p>
+      <p class="panel-footnote detail-timestamps">Created {{ item.createdAt | date: 'medium' }} · Updated {{ item.updatedAt | date: 'medium' }}</p>
     }
   </section>
 </main>
