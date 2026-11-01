@@ -70,6 +70,37 @@ export interface TrainerProfileView {
   photoUrl: string | null;
   resumeUrl: string | null;
   resumeFileName: string | null;
+  location: string;
+  skills: string[];
+  expectedRate: number | null;
+  githubUrl: string | null;
+  linkedinUrl: string | null;
+  leetcodeUrl: string | null;
+  isPublic: boolean;
+  publicSlug: string | null;
+}
+
+export interface TrainerProfileSuggestions {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  skills: string[];
+  githubUrl: string | null;
+  linkedinUrl: string | null;
+  leetcodeUrl: string | null;
+}
+
+export interface PublicTrainerProfileView {
+  id: string;
+  publicSlug: string;
+  name: string;
+  photoUrl: string | null;
+  location: string;
+  skills: string[];
+  githubUrl: string | null;
+  linkedinUrl: string | null;
+  leetcodeUrl: string | null;
 }
 
 export interface AuthSession {
@@ -195,6 +226,7 @@ export interface ApplicationView {
     id: string;
     name: string;
     photoUrl: string | null;
+    publicSlug: string | null;
     skills: string[];
     location: string;
     email: string | null;

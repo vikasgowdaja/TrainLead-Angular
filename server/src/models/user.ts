@@ -11,6 +11,14 @@ const UserSchema = new Schema(
     resumeUrl: { type: String, default: null },
     resumePublicId: { type: String, default: null },
     resumeFileName: { type: String, default: null },
+    location: { type: String, default: '' },
+    skills: { type: [String], default: [] },
+    expectedRate: { type: Number, default: null },
+    githubUrl: { type: String, default: null },
+    linkedinUrl: { type: String, default: null },
+    leetcodeUrl: { type: String, default: null },
+    isPublic: { type: Boolean, default: false },
+    publicSlug: { type: String, default: null },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: RoleSchema.options, required: true, index: true },
     organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', default: null, index: true },
@@ -24,5 +32,6 @@ const UserSchema = new Schema(
 
 UserSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
 UserSchema.index({ phone: 1 }, { unique: true, partialFilterExpression: { phone: { $type: 'string' } } });
+UserSchema.index({ publicSlug: 1 }, { unique: true, partialFilterExpression: { publicSlug: { $type: 'string' } } });
 
 export const User = model('User', UserSchema);

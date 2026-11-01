@@ -19,6 +19,8 @@ interface PopulatedUser {
   email?: string | null;
   phone?: string | null;
   photoUrl?: string | null;
+  publicSlug?: string | null;
+  isPublic?: boolean;
 }
 
 interface PopulatedRequirement {
@@ -81,6 +83,7 @@ function presentApplication(application: ApplicationRecord, includeTrainerContac
       id: String(trainer?._id ?? application.trainerId),
       name: trainer?.name ?? 'Trainer',
       photoUrl: trainer?.photoUrl ?? null,
+      publicSlug: trainer?.isPublic ? trainer.publicSlug ?? String(trainer._id) : null,
       skills: application.skills ?? [],
       location: application.location ?? '',
       email: showContact ? trainer?.email ?? null : null,
@@ -230,7 +233,7 @@ router.get('/requirements/:requirementId', requireRole('Admin', 'Vendor'), loadA
     throw new HttpError(403, 'Only the posting organization can review applications');
   }
   const applications = await Application.find({ requirementId, deletedAt: null } as never)
-    .populate('trainerId', 'name email phone photoUrl')
+    .populate('trainerId', 'name email phone photoUrl publicSlug isPublic')
     .populate('requirementId', 'title city startDate endDate')
     .sort({ createdAt: -1 })
     .lean();

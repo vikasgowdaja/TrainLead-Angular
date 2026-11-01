@@ -2,7 +2,7 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { DemoSlotInput } from '@trainlead/shared';
-import type { ApplicationView, DemoSlotView, RequirementDetail, RequirementStatus, SourceType, SourceView } from '@trainlead/shared/domain';
+import type { ApplicationView, DemoSlotView, RequirementDetail, RequirementStatus, SourceType, SourceView, TrainerProfileView } from '@trainlead/shared/domain';
 import { SOURCE_TYPES } from '@trainlead/shared/domain';
 import { finalize } from 'rxjs';
 import { MarketplaceService } from '../../core/marketplace.service';
@@ -35,6 +35,7 @@ export class RequirementDetailPage {
   protected readonly myApplication = signal<ApplicationView | null>(null);
   protected readonly myApplicationLoaded = signal(false);
   protected readonly trainerProfileLoaded = signal(false);
+  private readonly trainerProfile = signal<TrainerProfileView | null>(null);
   protected readonly reapplying = signal(false);
   private readonly previousApplication = signal<ApplicationView | null>(null);
   protected readonly applications = signal<ApplicationView[]>([]);
@@ -164,16 +165,17 @@ export class RequirementDetailPage {
   }
 
   protected startReapplication(application: ApplicationView): void {
+    const profile = this.trainerProfile();
     this.previousApplication.set(application);
     this.coverNote.set(application.coverNote);
-    this.expectedRate.set(application.expectedRate?.toString() ?? '');
-    this.skillsInput.set(application.trainer.skills.join(', '));
-    this.locationInput.set(application.trainer.location);
-    this.contactPhoneInput.set(application.trainer.phone ?? this.auth.currentUser()?.phone ?? '');
+    this.expectedRate.set((profile?.expectedRate ?? application.expectedRate)?.toString() ?? '');
+    this.skillsInput.set(profile?.skills.length ? profile.skills.join(', ') : application.trainer.skills.join(', '));
+    this.locationInput.set(profile?.location || application.trainer.location);
+    this.contactPhoneInput.set(profile?.phone || application.trainer.phone || this.auth.currentUser()?.phone || '');
     this.resumeUrl.set(this.savedResumeUrl() || application.trainer.profileLinks.resume.trim());
-    this.githubUrl.set(application.trainer.profileLinks.github);
-    this.linkedinUrl.set(application.trainer.profileLinks.linkedin);
-    this.leetcodeUrl.set(application.trainer.profileLinks.leetcode);
+    this.githubUrl.set(profile?.githubUrl || application.trainer.profileLinks.github);
+    this.linkedinUrl.set(profile?.linkedinUrl || application.trainer.profileLinks.linkedin);
+    this.leetcodeUrl.set(profile?.leetcodeUrl || application.trainer.profileLinks.leetcode);
     this.reapplying.set(true);
     this.myApplication.set(null);
   }
@@ -253,11 +255,18 @@ export class RequirementDetailPage {
   private loadTrainerProfile(): void {
     this.api.getTrainerProfile().pipe(finalize(() => this.trainerProfileLoaded.set(true))).subscribe({
       next: ({ data }) => {
+        this.trainerProfile.set(data);
         const resumeUrl = data.resumeUrl?.trim() ?? '';
         this.savedResumeUrl.set(resumeUrl);
         this.savedResumeFileName.set(data.resumeFileName?.trim() || this.resumeNameFromUrl(resumeUrl));
         if (!this.resumeUrl()) this.resumeUrl.set(resumeUrl);
         if (!this.contactPhoneInput()) this.contactPhoneInput.set(data.phone ?? '');
+        if (!this.skillsInput()) this.skillsInput.set(data.skills.join(', '));
+        if (!this.locationInput()) this.locationInput.set(data.location);
+        if (!this.expectedRate()) this.expectedRate.set(data.expectedRate?.toString() ?? '');
+        if (!this.githubUrl()) this.githubUrl.set(data.githubUrl ?? '');
+        if (!this.linkedinUrl()) this.linkedinUrl.set(data.linkedinUrl ?? '');
+        if (!this.leetcodeUrl()) this.leetcodeUrl.set(data.leetcodeUrl ?? '');
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });

@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type { ApplicationDecision, ApplyToRequirementInput, BookDemoSlotInput, DemoSlotsUpdateInput, InboxCaptureInput, InterviewScheduleInput, OrganizationInput, RequirementInput, RequirementQuery, SmartExtractionRequest, SourceInput } from '@trainlead/shared';
+import type { ApplicationDecision, ApplyToRequirementInput, BookDemoSlotInput, DemoSlotsUpdateInput, InboxCaptureInput, InterviewScheduleInput, OrganizationInput, RequirementInput, RequirementQuery, SmartExtractionRequest, SourceInput, TrainerProfileUpdateInput } from '@trainlead/shared';
 import type {
   ApplicationView,
   ApplicationNotificationView,
@@ -18,6 +18,8 @@ import type {
   VerificationStatus,
   SkillView,
   TrainerProfileView,
+  TrainerProfileSuggestions,
+  PublicTrainerProfileView,
   SmartExtractionResult,
 } from '@trainlead/shared/domain';
 import { Observable } from 'rxjs';
@@ -50,7 +52,11 @@ export class MarketplaceService {
     return this.http.get<{ data: TrainerProfileView }>('/api/trainer-profile/me');
   }
 
-  updateTrainerProfile(input: { name: string; email: string | null; phone: string | null }): Observable<{ data: TrainerProfileView }> {
+  getPublicTrainerProfile(id: string): Observable<{ data: PublicTrainerProfileView }> {
+    return this.http.get<{ data: PublicTrainerProfileView }>(`/api/trainer-profile/${id}/public`);
+  }
+
+  updateTrainerProfile(input: TrainerProfileUpdateInput): Observable<{ data: TrainerProfileView }> {
     return this.http.put<{ data: TrainerProfileView }>('/api/trainer-profile/me', input);
   }
 
@@ -64,6 +70,12 @@ export class MarketplaceService {
     const body = new FormData();
     body.append('resume', file);
     return this.http.post<{ data: TrainerProfileView }>('/api/trainer-profile/me/resume', body);
+  }
+
+  extractTrainerResume(file: File): Observable<{ data: TrainerProfileSuggestions }> {
+    const body = new FormData();
+    body.append('resume', file);
+    return this.http.post<{ data: TrainerProfileSuggestions }>('/api/trainer-profile/me/resume/extract', body);
   }
 
   createOrganization(input: OrganizationInput): Observable<{ data: OrganizationView }> {

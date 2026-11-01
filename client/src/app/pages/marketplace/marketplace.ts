@@ -47,6 +47,7 @@ export class MarketplacePage {
   protected readonly applicationNotifications = signal<ApplicationNotificationView[]>([]);
   protected readonly pendingApplicationCount = signal(0);
   protected readonly notificationsOpen = signal(false);
+  protected readonly accountMenuOpen = signal(false);
   protected readonly notificationsLoading = signal(false);
   protected readonly notificationsError = signal<string | null>(null);
   protected readonly statuses = REQUIREMENT_STATUSES;
@@ -64,6 +65,7 @@ export class MarketplacePage {
       .map((part) => part[0]?.toUpperCase())
       .join(''),
   );
+  protected readonly welcomeName = computed(() => this.auth.currentUser()?.name.trim() || 'there');
 
   protected readonly cards = computed(() => this.requirements());
 
@@ -121,6 +123,14 @@ export class MarketplacePage {
 
   protected closeNotifications(): void {
     this.notificationsOpen.set(false);
+  }
+
+  protected toggleAccountMenu(): void {
+    this.accountMenuOpen.update((open) => !open);
+  }
+
+  protected closeAccountMenu(): void {
+    this.accountMenuOpen.set(false);
   }
 
   private loadApplicationNotifications(): void {

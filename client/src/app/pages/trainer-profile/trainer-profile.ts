@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { TrainerProfileView } from '@trainlead/shared/domain';
+import type { TrainerProfileUpdateInput } from '@trainlead/shared';
+import type { TrainerProfileSuggestions, TrainerProfileView } from '@trainlead/shared/domain';
 import { finalize } from 'rxjs';
 import { ResumePreview } from '../../resume-preview';
 import { MarketplaceService } from '../../core/marketplace.service';
@@ -26,12 +27,20 @@ export class TrainerProfilePage {
   protected readonly name = signal('');
   protected readonly email = signal('');
   protected readonly phone = signal('');
+  protected readonly location = signal('');
+  protected readonly skills = signal('');
+  protected readonly expectedRate = signal('');
+  protected readonly githubUrl = signal('');
+  protected readonly linkedinUrl = signal('');
+  protected readonly leetcodeUrl = signal('');
+  protected readonly isPublic = signal(false);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly uploadingPhoto = signal(false);
   protected readonly uploadingResume = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly successMessage = signal<string | null>(null);
+  protected readonly extractionNotice = signal<string | null>(null);
 
   constructor() {
     this.load();
@@ -50,14 +59,31 @@ export class TrainerProfilePage {
     const name = this.name().trim();
     const email = this.email().trim().toLowerCase();
     const phone = this.phone().trim();
+    const location = this.location().trim();
+    const rawRate = this.expectedRate().trim();
+    const expectedRate = rawRate ? Number(rawRate) : null;
+    const skills = [...new Set(this.skills().split(',').map((skill) => skill.trim()).filter(Boolean))];
+    const githubUrl = this.githubUrl().trim();
+    const linkedinUrl = this.linkedinUrl().trim();
+    const leetcodeUrl = this.leetcodeUrl().trim();
     if (name.length < 2) { this.errorMessage.set('Enter your name.'); return; }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.errorMessage.set('Enter a valid email address.'); return; }
     if (phone && !/^\+?[0-9]{10,15}$/.test(phone)) { this.errorMessage.set('Enter 10-15 digits for your phone number.'); return; }
     if (!email && !phone) { this.errorMessage.set('Add an email address or phone number.'); return; }
+    if (location.length > 120 || skills.length > 20 || skills.some((skill) => skill.length > 60)) { this.errorMessage.set('Check location length and keep up to 20 skills, with each skill 60 characters or fewer.'); return; }
+    if (rawRate && (!Number.isFinite(expectedRate) || expectedRate! < 0)) { this.errorMessage.set('Enter a non-negative daily rate.'); return; }
+    if (!this.isValidProfileUrl(githubUrl, 'github.com')) { this.errorMessage.set('Enter a valid HTTPS GitHub profile link.'); return; }
+    if (!this.isValidProfileUrl(linkedinUrl, 'linkedin.com')) { this.errorMessage.set('Enter a valid HTTPS LinkedIn profile link.'); return; }
+    if (!this.isValidProfileUrl(leetcodeUrl, 'leetcode.com')) { this.errorMessage.set('Enter a valid HTTPS LeetCode profile link.'); return; }
     this.saving.set(true);
     this.errorMessage.set(null);
     this.successMessage.set(null);
-    this.api.updateTrainerProfile({ name, email: email || null, phone: phone || null })
+    const input: TrainerProfileUpdateInput = {
+      name, email: email || null, phone: phone || null, location: location || null, skills,
+      expectedRate, githubUrl: githubUrl || null, linkedinUrl: linkedinUrl || null,
+      leetcodeUrl: leetcodeUrl || null, isPublic: this.isPublic(),
+    };
+    this.api.updateTrainerProfile(input)
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: ({ data }) => { this.setProfile(data); this.successMessage.set('Profile updated.'); },
@@ -98,9 +124,19 @@ export class TrainerProfilePage {
     }
     this.uploadingResume.set(true);
     this.errorMessage.set(null);
-    this.api.uploadTrainerResume(file).pipe(finalize(() => this.uploadingResume.set(false))).subscribe({
-      next: ({ data }) => { this.setProfile(data); this.successMessage.set('Resume uploaded.'); },
-      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    this.extractionNotice.set(null);
+    this.api.extractTrainerResume(file).subscribe({
+      next: ({ data }) => {
+        const fields = this.applyResumeSuggestions(data);
+        this.extractionNotice.set(fields.length
+          ? `Found ${fields.join(', ')}. Review the extracted fields and save your profile.`
+          : 'No profile details were recognized. Use a text-based PDF or enter your details manually.');
+        this.uploadResumeFile(file, data);
+      },
+      error: (error: unknown) => {
+        this.extractionNotice.set(`Resume extraction failed: ${describeHttpError(error)}. You can enter details manually.`);
+        this.uploadResumeFile(file, null);
+      },
     });
   }
 
@@ -109,6 +145,46 @@ export class TrainerProfilePage {
     this.name.set(profile.name);
     this.email.set(profile.email ?? '');
     this.phone.set(profile.phone ?? '');
+    this.location.set(profile.location);
+    this.skills.set(profile.skills.join(', '));
+    this.expectedRate.set(profile.expectedRate?.toString() ?? '');
+    this.githubUrl.set(profile.githubUrl ?? '');
+    this.linkedinUrl.set(profile.linkedinUrl ?? '');
+    this.leetcodeUrl.set(profile.leetcodeUrl ?? '');
+    this.isPublic.set(profile.isPublic);
+  }
+
+  private isValidProfileUrl(value: string, host: string): boolean {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' && (url.hostname === host || url.hostname === `www.${host}`);
+    } catch {
+      return false;
+    }
+  }
+
+  private applyResumeSuggestions(suggestions: TrainerProfileSuggestions): string[] {
+    const fields: string[] = [];
+    if (suggestions.name) { this.name.set(suggestions.name); fields.push('name'); }
+    if (suggestions.email) { this.email.set(suggestions.email); fields.push('email'); }
+    if (suggestions.phone) { this.phone.set(suggestions.phone); fields.push('phone'); }
+    if (suggestions.location) { this.location.set(suggestions.location); fields.push('location'); }
+    if (suggestions.skills.length) { this.skills.set(suggestions.skills.join(', ')); fields.push('skills'); }
+    if (suggestions.githubUrl) { this.githubUrl.set(suggestions.githubUrl); fields.push('GitHub'); }
+    if (suggestions.linkedinUrl) { this.linkedinUrl.set(suggestions.linkedinUrl); fields.push('LinkedIn'); }
+    if (suggestions.leetcodeUrl) { this.leetcodeUrl.set(suggestions.leetcodeUrl); fields.push('LeetCode'); }
+    return fields;
+  }
+
+  private uploadResumeFile(file: File, suggestions: TrainerProfileSuggestions | null): void {
+    this.api.uploadTrainerResume(file).pipe(finalize(() => this.uploadingResume.set(false))).subscribe({
+      next: ({ data }) => {
+        this.setProfile(data);
+        if (suggestions) this.applyResumeSuggestions(suggestions);
+      },
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    });
   }
 
   private async uploadOptimizedPhoto(file: File): Promise<void> {

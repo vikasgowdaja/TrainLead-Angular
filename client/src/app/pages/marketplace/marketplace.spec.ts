@@ -95,16 +95,23 @@ describe('MarketplacePage', () => {
     expect((trainerView.nativeElement as HTMLElement).querySelector('a[href="/admin/users"]')).toBeNull();
   });
 
-  it('uses the uploaded profile photo in the account link instead of a separate profile link', () => {
+  it('uses the uploaded photo in the compact account menu and keeps live status as a dot', () => {
     signInAs('Trainer');
     const fixture = TestBed.createComponent(MarketplacePage);
     fixture.detectChanges();
     flushDashboard(fixture, 'https://res.cloudinary.com/trainlead/image/upload/trainer.jpg');
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.profile-button[href="/trainer/profile"]')).not.toBeNull();
+    const accountButton = compiled.querySelector<HTMLButtonElement>('.account-menu-toggle');
+    expect(accountButton).not.toBeNull();
+    expect(accountButton?.querySelector('.role-pill')).toBeNull();
+    expect(compiled.querySelector('.welcome-card h2')?.textContent?.trim()).toBe('Ananya Rao');
     expect(compiled.querySelector('.profile-photo')?.getAttribute('src')).toBe('https://res.cloudinary.com/trainlead/image/upload/trainer.jpg');
-    expect(compiled.textContent).not.toContain('My profile');
+    expect(compiled.querySelector('.network-status')?.textContent?.trim()).toBe('');
+    accountButton?.click();
+    fixture.detectChanges();
+    expect(compiled.querySelectorAll('.account-menu a[href="/trainer/profile"]').length).toBe(1);
+    expect(compiled.querySelector('a[href="/skills"]')).not.toBeNull();
   });
 
   it('shows vendor application notifications linked to the matching application', () => {

@@ -52,12 +52,23 @@ describe('AddMemberSchema', () => {
 
 describe('TrainerProfileUpdateSchema', () => {
   it('accepts a trainer profile with valid contact details', () => {
-    expect(TrainerProfileUpdateSchema.parse({ name: 'Ananya Rao', email: 'ANANYA@example.com', phone: '+919876543210' }))
-      .toMatchObject({ name: 'Ananya Rao', email: 'ananya@example.com', phone: '+919876543210' });
+    expect(TrainerProfileUpdateSchema.parse({
+      name: 'Ananya Rao', email: 'ANANYA@example.com', phone: '+919876543210',
+      location: 'Mysuru, Karnataka', skills: ['AngularJS'],
+      githubUrl: 'https://github.com/ananya', linkedinUrl: 'https://linkedin.com/in/ananya',
+      leetcodeUrl: 'https://leetcode.com/ananya', isPublic: true,
+    })).toMatchObject({
+      name: 'Ananya Rao', email: 'ananya@example.com', phone: '+919876543210',
+      location: 'Mysuru, Karnataka', skills: ['AngularJS'], isPublic: true,
+    });
   });
 
   it('requires at least one account contact method', () => {
     expect(TrainerProfileUpdateSchema.safeParse({ name: 'Ananya Rao', email: null, phone: null }).success).toBe(false);
+  });
+
+  it('rejects profile links hosted on unrelated domains', () => {
+    expect(TrainerProfileUpdateSchema.safeParse({ name: 'Ananya Rao', email: 'a@b.co', phone: null, githubUrl: 'https://example.com' }).success).toBe(false);
   });
 });
 

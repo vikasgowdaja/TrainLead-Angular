@@ -27,13 +27,7 @@
     </nav>
 
     <div class="topbar-actions">
-      <span class="network-status"><span></span> Live marketplace</span>
-      @if (organizationNeeded()) {
-        <a class="text-link" routerLink="/organization/new">Set up organization</a>
-      }
-      @if (organizationExists()) {
-        <a class="text-link" routerLink="/organization">Organization</a>
-      }
+      <span class="network-status" role="img" aria-label="Live marketplace" title="Live marketplace"><span></span></span>
       @if (auth.currentUser()?.role === 'Vendor') {
         <div class="notification-wrap">
           <button class="icon-button notification-toggle" type="button" aria-label="Notifications" title="Notifications" [attr.aria-expanded]="notificationsOpen()" aria-controls="application-notifications" (click)="toggleNotifications()">
@@ -66,25 +60,29 @@
         <span class="material-symbols-outlined" aria-hidden="true">{{ darkMode() ? 'light_mode' : 'dark_mode' }}</span>
       </button>
       @if (auth.currentUser(); as user) {
-        @if (user.role === 'Admin') {
-          <a class="text-link" routerLink="/admin">Admin</a>
-          <a class="text-link" routerLink="/admin/users">Users</a>
-          <a class="text-link" routerLink="/admin/organizations">Organizations</a>
-        }
-        <a class="text-link" routerLink="/skills">Skills</a>
-        @if (user.role === 'Trainer') {
-          <a class="profile-button" routerLink="/trainer/profile" [attr.aria-label]="'Open profile for ' + user.name" title="Open your profile">
-            @if (trainerPhotoUrl(); as photoUrl) { <img class="profile-avatar profile-photo" [src]="photoUrl" alt="" /> } @else { <span class="profile-avatar">{{ initials() }}</span> }
-            <span class="profile-name">{{ user.name }}</span><span class="role-pill">{{ user.role }}</span>
-          </a>
-        } @else {
-          <span class="profile-button" [attr.aria-label]="'Signed in as ' + user.name + ', ' + user.role">
-            <span class="profile-avatar">{{ initials() }}</span><span class="profile-name">{{ user.name }}</span><span class="role-pill">{{ user.role }}</span>
-          </span>
-        }
-        <button class="icon-button" type="button" aria-label="Sign out" title="Sign out" (click)="logout()">
-          <span class="material-symbols-outlined" aria-hidden="true">logout</span>
-        </button>
+        <div class="account-menu-wrap">
+          <button class="profile-button account-menu-toggle" type="button" aria-haspopup="true" [attr.aria-expanded]="accountMenuOpen()" aria-controls="account-menu" [attr.aria-label]="'Account menu for ' + user.name" (click)="toggleAccountMenu()">
+            @if (user.role === 'Trainer' && trainerPhotoUrl(); as photoUrl) { <img class="profile-avatar profile-photo" [src]="photoUrl" alt="" /> } @else { <span class="profile-avatar">{{ initials() }}</span> }
+            <span class="profile-name">{{ user.name }}</span><span class="material-symbols-outlined account-menu-caret" aria-hidden="true">expand_more</span>
+          </button>
+          @if (accountMenuOpen()) {
+            <nav class="account-menu" id="account-menu" aria-label="Account navigation">
+              <div class="account-menu-user"><strong>{{ user.name }}</strong><span>{{ user.role }}</span></div>
+              @if (user.role === 'Trainer') { <a routerLink="/trainer/profile" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">person</span>My profile</a> }
+              <a routerLink="/skills" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">school</span>Skills</a>
+              @if (user.role === 'Vendor' || user.role === 'Admin') {
+                @if (organizationNeeded()) { <a routerLink="/organization/new" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">add_business</span>Set up organization</a> }
+                @if (organizationExists()) { <a routerLink="/organization" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">business</span>Organization</a> }
+              }
+              @if (user.role === 'Admin') {
+                <a routerLink="/admin" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">dashboard</span>Admin dashboard</a>
+                <a routerLink="/admin/users" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">group</span>Users</a>
+                <a routerLink="/admin/organizations" (click)="closeAccountMenu()"><span class="material-symbols-outlined" aria-hidden="true">domain</span>Organizations</a>
+              }
+              <button type="button" (click)="closeAccountMenu(); logout()"><span class="material-symbols-outlined" aria-hidden="true">logout</span>Sign out</button>
+            </nav>
+          }
+        </div>
       }
     </div>
   </header>
@@ -92,6 +90,10 @@
   <main class="workspace">
     @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
     @if (activeView() === 'requirements') {
+      <section class="welcome-card" aria-labelledby="welcome-title">
+        <div><p class="eyebrow">WELCOME BACK</p><h2 id="welcome-title">{{ welcomeName() }}</h2><p>Your next training opportunity could start here.</p></div>
+        <span class="material-symbols-outlined" aria-hidden="true">waving_hand</span>
+      </section>
       <section class="page-heading" aria-labelledby="page-title">
         <div>
           <p class="eyebrow">TRAINING MARKETPLACE <span>/</span> SOURCING</p>

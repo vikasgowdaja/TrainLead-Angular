@@ -1,14 +1,38 @@
 import { Router, type RequestHandler } from 'express';
 import multer, { type FileFilterCallback } from 'multer';
 import { TrainerProfileUpdateSchema } from '@trainlead/shared';
-import type { TrainerProfileView } from '@trainlead/shared/domain';
+import type { PublicTrainerProfileView, TrainerProfileSuggestions, TrainerProfileView } from '@trainlead/shared/domain';
 import { actorOf, loadActor } from '../auth/actor.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
-import { HttpError, parseBody } from '../http.js';
+import { HttpError, objectId, parseBody } from '../http.js';
 import { User } from '../models/user.js';
 import { uploadTrainerAsset, type TrainerAssetKind } from '../services/cloudinary.js';
+import { extractTrainerProfileFromResume } from '../services/resume-extraction.js';
 
 const router = Router();
+router.get('/:id/public', async (request, response) => {
+  const identifier = request.params['id'].trim().toLowerCase();
+  const lookup = /^[a-f0-9]{24}$/i.test(identifier)
+    ? { _id: objectId(identifier, 'trainer id') }
+    : { publicSlug: identifier };
+  const trainer = await User.findOne({ ...lookup, role: 'Trainer', isPublic: true, deletedAt: null } as never)
+    .select('name publicSlug photoUrl location skills githubUrl linkedinUrl leetcodeUrl')
+    .lean();
+  if (!trainer) throw new HttpError(404, 'Public trainer profile not found.');
+  const data: PublicTrainerProfileView = {
+    id: String(trainer._id),
+    publicSlug: trainer.publicSlug ?? String(trainer._id),
+    name: trainer.name,
+    photoUrl: trainer.photoUrl ?? null,
+    location: trainer.location ?? '',
+    skills: trainer.skills ?? [],
+    githubUrl: trainer.githubUrl ?? null,
+    linkedinUrl: trainer.linkedinUrl ?? null,
+    leetcodeUrl: trainer.leetcodeUrl ?? null,
+  };
+  response.json({ data });
+});
+
 router.use(requireAuth, requireRole('Trainer'), loadActor);
 
 function parseUpload(kind: TrainerAssetKind): RequestHandler {
@@ -44,7 +68,7 @@ function validFileSignature(file: Express.Multer.File, kind: TrainerAssetKind): 
   return file.mimetype === 'image/webp' && file.buffer.toString('ascii', 0, 4) === 'RIFF' && file.buffer.toString('ascii', 8, 12) === 'WEBP';
 }
 
-function presentProfile(user: { _id: unknown; name: string; email?: string | null; phone?: string | null; photoUrl?: string | null; resumeUrl?: string | null; resumeFileName?: string | null }): TrainerProfileView {
+function presentProfile(user: { _id: unknown; name: string; email?: string | null; phone?: string | null; photoUrl?: string | null; resumeUrl?: string | null; resumeFileName?: string | null; location?: string; skills?: string[]; expectedRate?: number | null; githubUrl?: string | null; linkedinUrl?: string | null; leetcodeUrl?: string | null; isPublic?: boolean; publicSlug?: string | null }): TrainerProfileView {
   return {
     id: String(user._id),
     name: user.name,
@@ -53,12 +77,20 @@ function presentProfile(user: { _id: unknown; name: string; email?: string | nul
     photoUrl: user.photoUrl ?? null,
     resumeUrl: user.resumeUrl ?? null,
     resumeFileName: user.resumeFileName ?? null,
+    location: user.location ?? '',
+    skills: user.skills ?? [],
+    expectedRate: user.expectedRate ?? null,
+    githubUrl: user.githubUrl ?? null,
+    linkedinUrl: user.linkedinUrl ?? null,
+    leetcodeUrl: user.leetcodeUrl ?? null,
+    isPublic: user.isPublic ?? false,
+    publicSlug: user.publicSlug ?? null,
   };
 }
 
 router.get('/me', async (request, response) => {
   const actor = actorOf(request);
-  const user = await User.findOne({ _id: actor.userId, deletedAt: null }).select('name email phone photoUrl resumeUrl resumeFileName').lean();
+  const user = await User.findOne({ _id: actor.userId, deletedAt: null }).select('name email phone photoUrl resumeUrl resumeFileName location skills expectedRate githubUrl linkedinUrl leetcodeUrl isPublic publicSlug').lean();
   if (!user) throw new HttpError(404, 'Trainer profile not found.');
   response.json({ data: presentProfile(user) });
 });
@@ -67,11 +99,31 @@ router.put('/me', async (request, response) => {
   const actor = actorOf(request);
   const input = parseBody(TrainerProfileUpdateSchema, request.body, 'trainer profile');
   try {
+    const current = await User.findOne({ _id: actor.userId, role: 'Trainer', deletedAt: null } as never).select('publicSlug').lean();
+    if (!current) throw new HttpError(404, 'Trainer profile not found.');
+    let publicSlug = current.publicSlug ?? null;
+    if (input.isPublic && !publicSlug) {
+      const base = input.name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 40) || 'trainer';
+      const collision = await User.exists({ publicSlug: base, _id: { $ne: actor.userId }, deletedAt: null } as never);
+      publicSlug = collision ? `${base}-${String(actor.userId).slice(-6)}` : base;
+    }
     const user = await User.findOneAndUpdate(
       { _id: actor.userId, role: 'Trainer', deletedAt: null } as never,
-      { $set: { name: input.name, email: input.email, phone: input.phone } },
+      { $set: {
+        name: input.name,
+        email: input.email,
+        phone: input.phone,
+        location: input.location ?? '',
+        skills: input.skills,
+        expectedRate: input.expectedRate,
+        githubUrl: input.githubUrl,
+        linkedinUrl: input.linkedinUrl,
+        leetcodeUrl: input.leetcodeUrl,
+        isPublic: input.isPublic,
+        publicSlug,
+      } },
       { new: true, runValidators: true },
-    ).select('name email phone photoUrl resumeUrl resumeFileName');
+    ).select('name email phone photoUrl resumeUrl resumeFileName location skills expectedRate githubUrl linkedinUrl leetcodeUrl isPublic publicSlug');
     if (!user) throw new HttpError(404, 'Trainer profile not found.');
     response.json({ data: presentProfile(user.toObject()) });
   } catch (error) {
@@ -102,11 +154,22 @@ function uploadRoute(kind: TrainerAssetKind): RequestHandler[] {
       { _id: actor.userId, role: 'Trainer', deletedAt: null } as never,
       { $set: fields },
       { new: true },
-    ).select('name email phone photoUrl resumeUrl resumeFileName');
+    ).select('name email phone photoUrl resumeUrl resumeFileName location skills expectedRate githubUrl linkedinUrl leetcodeUrl isPublic');
     if (!user) throw new HttpError(404, 'Trainer profile not found.');
     response.json({ data: presentProfile(user.toObject()) });
   }];
 }
+
+router.post('/me/resume/extract', parseUpload('resume'), async (request, response) => {
+  const file = request.file;
+  if (!file) throw new HttpError(400, 'Choose a PDF resume first.');
+  if (!validFileSignature(file, 'resume')) throw new HttpError(415, 'The file contents are not a valid PDF.');
+  try {
+    response.json({ data: await extractTrainerProfileFromResume(file.buffer) });
+  } catch {
+    throw new HttpError(422, 'Could not extract readable text from this PDF. You can still enter your profile details manually.');
+  }
+});
 
 router.post('/me/photo', ...uploadRoute('photo'));
 router.post('/me/resume', ...uploadRoute('resume'));

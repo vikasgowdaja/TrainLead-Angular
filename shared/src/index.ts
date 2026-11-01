@@ -83,6 +83,13 @@ export const TrainerProfileUpdateSchema = z.object({
   name: z.string().trim().min(2).max(80),
   email: z.email().trim().toLowerCase().nullable().default(null),
   phone: PhoneSchema.nullable().default(null),
+  location: text(120).nullable().default(null),
+  skills: z.array(text(60).min(1)).max(20).default([]),
+  expectedRate: z.number().nonnegative().nullable().default(null),
+  githubUrl: GitHubUrlSchema.nullable().default(null),
+  linkedinUrl: LinkedInUrlSchema.nullable().default(null),
+  leetcodeUrl: LeetCodeUrlSchema.nullable().default(null),
+  isPublic: z.boolean().default(false),
 }).refine((profile) => profile.email || profile.phone, {
   message: 'Provide an email address or phone number.',
   path: ['email'],
@@ -307,6 +314,7 @@ export const InboxQuerySchema = z.object({
 
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
+export type TrainerProfileUpdateInput = z.input<typeof TrainerProfileUpdateSchema>;
 export type ApplyToRequirementInput = z.input<typeof ApplyToRequirementSchema>;
 export type DemoSlotInput = z.input<typeof DemoSlotSchema>;
 export type DemoSlotsUpdateInput = z.input<typeof DemoSlotsUpdateSchema>;

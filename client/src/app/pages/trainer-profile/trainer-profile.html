@@ -8,6 +8,7 @@
     @if (loading()) { <p class="auth-subtitle">Loading profile…</p> }
     @if (errorMessage(); as message) { <p class="form-error" role="alert">{{ message }}</p> }
     @if (successMessage(); as message) { <p class="success-toast" role="status">{{ message }}</p> }
+    @if (extractionNotice(); as message) { <p class="success-toast extraction-notice" role="status">{{ message }}</p> }
 
     @if (profile(); as current) {
       <section class="trainer-profile-media" aria-label="Profile photo and resume">
@@ -31,6 +32,14 @@
         <label class="field"><span>Full name</span><input autocomplete="name" required minlength="2" [value]="name()" (input)="name.set($any($event.target).value)" /></label>
         <label class="field"><span>Email</span><input type="email" autocomplete="email" [value]="email()" (input)="email.set($any($event.target).value)" /></label>
         <label class="field"><span>Phone / WhatsApp</span><input type="tel" autocomplete="tel" placeholder="+919876543210" [value]="phone()" (input)="phone.set($any($event.target).value)" /></label>
+        <label class="field"><span>City / location</span><input autocomplete="address-level2" [value]="location()" (input)="location.set($any($event.target).value)" placeholder="Mysuru, Karnataka" /></label>
+        <label class="field field-wide"><span>Professional skills <small>(comma separated)</small></span><input [value]="skills()" (input)="skills.set($any($event.target).value)" placeholder="Angular, TypeScript, Node.js" /></label>
+        <label class="field"><span>Expected daily rate <small>(optional)</small></span><input type="number" min="0" [value]="expectedRate()" (input)="expectedRate.set($any($event.target).value)" /></label>
+        <label class="field"><span>GitHub profile</span><input type="url" [value]="githubUrl()" (input)="githubUrl.set($any($event.target).value)" placeholder="https://github.com/username" /></label>
+        <label class="field"><span>LinkedIn profile</span><input type="url" [value]="linkedinUrl()" (input)="linkedinUrl.set($any($event.target).value)" placeholder="https://linkedin.com/in/username" /></label>
+        <label class="field"><span>LeetCode profile</span><input type="url" [value]="leetcodeUrl()" (input)="leetcodeUrl.set($any($event.target).value)" placeholder="https://leetcode.com/username" /></label>
+        <label class="public-profile-toggle field-wide"><input type="checkbox" [checked]="isPublic()" (change)="isPublic.set($any($event.target).checked)" /><span><strong>Make my professional profile public</strong><small>Visitors can see your photo, location, skills and profile links. Email, phone and resume stay private.</small></span></label>
+        @if (current.isPublic) { <a class="public-profile-link field-wide" [routerLink]="['/trainers', current.publicSlug || current.id]">View your public profile</a> }
         <p class="panel-footnote trainer-contact-note">Keep at least one contact method on your account.</p>
         <div class="form-actions field-wide"><button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save profile' }}</button></div>
       </form>

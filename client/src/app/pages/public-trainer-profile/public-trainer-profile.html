@@ -1,0 +1,22 @@
+<main class="app-shell public-trainer-page">
+  <section class="public-trainer-content" aria-labelledby="public-trainer-title">
+    <a class="back-link" routerLink="/">&larr; Back to requirements</a>
+    @if (loading()) { <p class="auth-subtitle">Loading trainer profile…</p> }
+    @else if (errorMessage(); as message) { <section class="detail-card" role="alert"><h1>Profile unavailable</h1><p>{{ message }}</p><a class="secondary-button" routerLink="/">Back to requirements</a></section> }
+    @else if (profile(); as trainer) {
+      <header class="public-trainer-heading">
+        @if (trainer.photoUrl) { <img class="public-trainer-photo" [src]="trainer.photoUrl" alt="Profile photo of {{ trainer.name }}" /> }
+        @else { <span class="public-trainer-photo-placeholder material-symbols-outlined" aria-hidden="true">person</span> }
+        <div><p class="eyebrow">TRAINLEAD <span>/</span> TRAINER PROFILE</p><h1 id="public-trainer-title">{{ trainer.name }}</h1><p>{{ trainer.location || 'Location not provided' }}</p></div>
+      </header>
+      <div class="public-trainer-sections">
+        <section class="detail-card" aria-labelledby="public-skills-title"><p class="eyebrow">EXPERTISE</p><h2 id="public-skills-title">Skills</h2>@if (trainer.skills.length) { <div class="card-tags">@for (skill of trainer.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div> } @else { <p class="panel-footnote">No skills listed.</p> }</section>
+        <section class="detail-card" aria-labelledby="public-links-title"><p class="eyebrow">PORTFOLIO</p><h2 id="public-links-title">Professional links</h2><nav class="public-trainer-links" aria-label="Professional links">
+          @if (trainer.githubUrl) { <a [href]="trainer.githubUrl" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">code</span>GitHub</a> }
+          @if (trainer.linkedinUrl) { <a [href]="trainer.linkedinUrl" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">work</span>LinkedIn</a> }
+          @if (trainer.leetcodeUrl) { <a [href]="trainer.leetcodeUrl" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">terminal</span>LeetCode</a> }
+        </nav></section>
+      </div>
+    }
+  </section>
+</main>

@@ -42,6 +42,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/trainer-profile/trainer-profile').then((m) => m.TrainerProfilePage),
   },
   {
+    path: 'trainers/:id',
+    loadComponent: () => import('./pages/public-trainer-profile/public-trainer-profile').then((m) => m.PublicTrainerProfilePage),
+  },
+  {
     path: 'organization/new',
     canActivate: [roleGuard('Vendor', 'Admin')],
     loadComponent: () => import('./pages/organization-form/organization-form').then((m) => m.OrganizationFormPage),
