@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { ApplicationDecisionSchema, ApplyToRequirementSchema, InterviewScheduleSchema } from '@trainlead/shared';
-import type { ApplicationStatus, ApplicationView } from '@trainlead/shared/domain';
+import { ApplicationDecisionSchema, ApplyToRequirementSchema, BookDemoSlotSchema, InterviewScheduleSchema } from '@trainlead/shared';
+import type { ApplicationNotificationView, ApplicationStatus, ApplicationView } from '@trainlead/shared/domain';
 import { Types } from 'mongoose';
-import { actorOf, loadActor } from '../auth/actor.js';
+import { actorOf, loadActor, requireOrganization } from '../auth/actor.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { HttpError, notFound, objectId, parseBody } from '../http.js';
 import { Application } from '../models/application.js';
@@ -36,11 +36,17 @@ interface ApplicationRecord {
   trainerId: Types.ObjectId | PopulatedUser;
   coverNote: string;
   expectedRate: number | null;
+  skills: string[];
+  resumeUrl: string;
+  githubUrl: string;
+  linkedinUrl: string;
+  leetcodeUrl: string;
   status: ApplicationStatus;
   interviewProvider: ApplicationView['interview'] extends infer _T ? string | null : never;
   meetingUrl: string | null;
   interviewAt: Date | null;
   interviewNotes: string;
+  demoSlotAt: Date | null;
   decisionNote: string | null;
   canManage: boolean;
   createdAt: Date;
@@ -71,8 +77,15 @@ function presentApplication(application: ApplicationRecord, includeTrainerContac
     trainer: {
       id: String(trainer?._id ?? application.trainerId),
       name: trainer?.name ?? 'Trainer',
+      skills: application.skills ?? [],
       email: showContact ? trainer?.email ?? null : null,
       phone: showContact ? trainer?.phone ?? null : null,
+      profileLinks: {
+        resume: application.resumeUrl ?? '',
+        github: application.githubUrl ?? '',
+        linkedin: application.linkedinUrl ?? '',
+        leetcode: application.leetcodeUrl ?? '',
+      },
     },
     coverNote: application.coverNote,
     expectedRate: application.expectedRate,
@@ -106,6 +119,36 @@ router.get('/mine', requireRole('Trainer'), loadActor, async (request, response)
   response.json({ data: applications.map((application) => presentApplication(application as unknown as ApplicationRecord, true, false)) });
 });
 
+router.get('/notifications', requireRole('Vendor'), loadActor, async (request, response) => {
+  const actor = actorOf(request);
+  const organizationId = requireOrganization(actor);
+  const filter = { organizationId, deletedAt: null };
+  const [applications, pendingCount] = await Promise.all([
+    Application.find(filter as never)
+      .populate('trainerId', 'name')
+      .populate('requirementId', 'title')
+      .sort({ updatedAt: -1 })
+      .limit(12)
+      .lean(),
+    Application.countDocuments({ ...filter, status: 'Applied' } as never),
+  ]);
+  const data: ApplicationNotificationView[] = applications.map((raw) => {
+    const application = raw as unknown as ApplicationRecord;
+    const requirement = isPopulatedRequirement(application.requirementId) ? application.requirementId : null;
+    const trainer = isPopulatedUser(application.trainerId) ? application.trainerId : null;
+    return {
+      applicationId: String(application._id),
+      requirementId: String(requirement?._id ?? application.requirementId),
+      requirementTitle: requirement?.title ?? 'Requirement',
+      trainerName: trainer?.name ?? 'Trainer',
+      status: application.status,
+      createdAt: application.createdAt.toISOString(),
+      updatedAt: application.updatedAt.toISOString(),
+    };
+  });
+  response.json({ data, pendingCount });
+});
+
 router.get('/requirements/:requirementId/mine', requireRole('Trainer'), loadActor, async (request, response) => {
   const actor = actorOf(request);
   const requirementId = objectId(request.params['requirementId'], 'requirement id');
@@ -131,6 +174,11 @@ router.post('/requirements/:requirementId', requireRole('Trainer'), loadActor, a
       trainerId: actor.userId,
       coverNote: input.coverNote,
       expectedRate: input.expectedRate,
+      skills: input.skills,
+      resumeUrl: input.resumeUrl,
+      githubUrl: input.githubUrl,
+      linkedinUrl: input.linkedinUrl,
+      leetcodeUrl: input.leetcodeUrl,
       status: 'Applied',
     });
     await application.populate([
@@ -181,6 +229,7 @@ router.patch('/:applicationId/interview', requireRole('Admin', 'Vendor'), loadAc
     meetingUrl: input.meetingUrl,
     interviewAt: scheduledAt,
     interviewNotes: input.notes,
+    demoSlotAt: null,
     status: 'InterviewScheduled',
   });
   await application.save();
@@ -189,6 +238,39 @@ router.patch('/:applicationId/interview', requireRole('Admin', 'Vendor'), loadAc
     { path: 'requirementId', select: 'title city startDate endDate' },
   ]);
   response.json({ data: presentApplication(application.toObject() as unknown as ApplicationRecord, false, true) });
+});
+
+router.patch('/:applicationId/demo-slot', requireRole('Trainer'), loadActor, async (request, response) => {
+  const actor = actorOf(request);
+  const applicationId = objectId(request.params['applicationId'], 'application id');
+  const { scheduledAt: scheduledAtInput } = parseBody(BookDemoSlotSchema, request.body, 'demo slot');
+  const application = await Application.findOne({ _id: applicationId, trainerId: actor.userId, status: 'Applied', demoSlotAt: null, deletedAt: null } as never);
+  if (!application) throw new HttpError(409, 'This application is no longer available for demo-slot booking');
+  const requirement = await Requirement.findOne({ _id: application.requirementId, deletedAt: null } as never);
+  if (!requirement) throw notFound('Requirement');
+  const scheduledAt = new Date(scheduledAtInput);
+  if (scheduledAt <= new Date()) throw new HttpError(400, 'Demo slot must be in the future');
+  const slot = requirement.demoSlots.find((item) => item.scheduledAt.getTime() === scheduledAt.getTime());
+  if (!slot) throw new HttpError(409, 'That demo slot is no longer offered');
+  try {
+    application.set({
+      demoSlotAt: scheduledAt,
+      interviewProvider: slot.provider,
+      meetingUrl: slot.meetingUrl,
+      interviewAt: scheduledAt,
+      interviewNotes: '',
+      status: 'InterviewScheduled',
+    });
+    await application.save();
+  } catch (error) {
+    if (duplicateKey(error)) throw new HttpError(409, 'That demo slot has just been booked by another trainer');
+    throw error;
+  }
+  await application.populate([
+    { path: 'trainerId', select: 'name email phone' },
+    { path: 'requirementId', select: 'title city startDate endDate' },
+  ]);
+  response.json({ data: presentApplication(application.toObject() as unknown as ApplicationRecord, true, false) });
 });
 
 router.patch('/:applicationId/decision', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
@@ -208,7 +290,7 @@ router.patch('/:applicationId/decision', requireRole('Admin', 'Vendor'), loadAct
   if (application.status === 'Accepted' || application.status === 'Rejected' || application.status === 'Withdrawn') {
     throw new HttpError(409, `This application is already ${application.status.toLowerCase()}`);
   }
-  application.set({ status: input.status, decisionNote: input.decisionNote });
+  application.set({ status: input.status, decisionNote: input.decisionNote, ...(input.status === 'Rejected' ? { demoSlotAt: null } : {}) });
   await application.save();
   await application.populate([
     { path: 'trainerId', select: 'name email phone' },

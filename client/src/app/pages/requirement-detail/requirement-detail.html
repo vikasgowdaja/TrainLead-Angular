@@ -34,6 +34,21 @@
       </dl>
       <section class="detail-section"><h2>Required skills</h2><div class="card-tags">@for (skill of item.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div></section>
       <section class="detail-section support-strip"><span class="support-item"><span class="support-name">Travel</span><span class="support-status">{{ item.travel }}</span></span><span class="support-item"><span class="support-name">Food</span><span class="support-status">{{ item.food }}</span></span><span class="support-item"><span class="support-name">Stay</span><span class="support-status">{{ item.stay }}</span></span></section>
+      @if (item.canManage) {
+        <section class="detail-section" aria-labelledby="demo-slots-title">
+          <h2 id="demo-slots-title">Demo slots</h2>
+          <p class="auth-subtitle">Publish available times and one meeting link. Trainers can book a slot directly.</p>
+          <div class="demo-slot-editor">
+            <label class="field"><span>Meeting platform</span><select [value]="demoProvider()" (change)="demoProvider.set($any($event.target).value)"><option>Google Meet</option><option>Zoom</option><option>Microsoft Teams</option></select></label>
+            <label class="field"><span>Meeting link</span><input type="url" [value]="demoMeetingUrl()" (input)="demoMeetingUrl.set($any($event.target).value)" placeholder="https://meet.google.com/..." /></label>
+            <label class="field"><span>Available date and time</span><input type="datetime-local" [value]="demoSlotDateTime()" (input)="demoSlotDateTime.set($any($event.target).value)" /></label>
+            <button class="secondary-button" type="button" [disabled]="savingDemoSlots()" (click)="addDemoSlot()">Add slot</button>
+          </div>
+          @for (slot of item.demoSlots; track slot.scheduledAt) {
+            <div class="demo-slot-row"><span>{{ slot.provider }} · {{ slot.scheduledAt | date: 'medium' }}</span><span class="role-pill">{{ slot.booked ? 'Booked' : slot.available ? 'Available' : 'Expired' }}</span>@if (!slot.booked) { <button class="text-button" type="button" [disabled]="savingDemoSlots()" (click)="removeDemoSlot(slot)">Remove</button> }</div>
+          } @empty { <p class="panel-footnote">No demo slots published.</p> }
+        </section>
+      }
       @if (isTrainer()) {
         <section class="detail-section application-panel" aria-labelledby="application-title">
           <h2 id="application-title">Your application</h2>
@@ -41,6 +56,12 @@
           @else if (myApplication(); as application) {
             <p>Status: <span class="role-pill">{{ application.status }}</span></p>
             @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
+            @if (application.status === 'Applied') {
+              @if (item.demoSlots.length) {
+                <label class="field"><span>Choose an available demo slot</span><select [value]="selectedDemoSlot()" (change)="selectedDemoSlot.set($any($event.target).value)"><option value="">Select a time</option>@for (slot of item.demoSlots; track slot.scheduledAt) { @if (slot.available) { <option [value]="slot.scheduledAt">{{ slot.scheduledAt | date: 'medium' }} · {{ slot.provider }}</option> } }</select></label>
+                <button class="primary-button" type="button" [disabled]="applicationBusy() === application.id || !selectedDemoSlot()" (click)="bookDemoSlot()">{{ applicationBusy() === application.id ? 'Booking…' : 'Book demo slot' }}</button>
+              } @else { <p class="auth-subtitle">The Vendor has not published any demo slots yet.</p> }
+            }
             @if (application.interview; as interview) {
               <div class="interview-invite">
                 <strong>{{ interview.provider }} interview</strong>
@@ -56,7 +77,14 @@
           } @else if (item.status === 'Open') {
             <p class="auth-subtitle">Apply to this training requirement. The Vendor will review your application and may schedule a video interview.</p>
             <label class="field"><span>Application note</span><textarea rows="3" [value]="coverNote()" (input)="coverNote.set($any($event.target).value)" placeholder="Briefly describe your relevant training experience"></textarea></label>
+            <label class="field"><span>Relevant skills <small>(comma separated)</small></span><input required [value]="skillsInput()" (input)="skillsInput.set($any($event.target).value)" placeholder="AngularJS, JavaScript" /></label>
             <label class="field"><span>Expected daily rate (optional)</span><input type="number" min="0" [value]="expectedRate()" (input)="expectedRate.set($any($event.target).value)" /></label>
+            <div class="trainer-profile-links">
+              <label class="field"><span>Resume link (required)</span><input type="url" required [value]="resumeUrl()" (input)="resumeUrl.set($any($event.target).value)" placeholder="https://..." /></label>
+              <label class="field"><span>GitHub profile (required)</span><input type="url" required [value]="githubUrl()" (input)="githubUrl.set($any($event.target).value)" placeholder="https://github.com/username" /></label>
+              <label class="field"><span>LinkedIn profile (required)</span><input type="url" required [value]="linkedinUrl()" (input)="linkedinUrl.set($any($event.target).value)" placeholder="https://linkedin.com/in/username" /></label>
+              <label class="field"><span>LeetCode profile (required)</span><input type="url" required [value]="leetcodeUrl()" (input)="leetcodeUrl.set($any($event.target).value)" placeholder="https://leetcode.com/username" /></label>
+            </div>
             <button class="primary-button" type="button" [disabled]="applying()" (click)="apply()">{{ applying() ? 'Applying…' : 'Apply to requirement' }}</button>
           } @else {
             <p class="auth-subtitle">Applications are closed for this requirement.</p>
@@ -64,21 +92,21 @@
         </section>
       }
       @if (item.canManage) {
-        <section class="detail-section applications-panel" aria-labelledby="applications-title">
+        <section class="detail-section applications-panel" id="applications" aria-labelledby="applications-title">
           <h2 id="applications-title">Trainer applications <span class="count-mark">{{ applications().length }}</span></h2>
           @for (application of applications(); track application.id) {
-            <article class="application-card">
-              <div class="application-card-heading"><div><strong>{{ application.trainer.name }}</strong><p>Status: <span class="role-pill">{{ application.status }}</span></p></div><span class="panel-footnote">Applied {{ application.createdAt | date: 'mediumDate' }}</span></div>
+            <article class="application-card" [id]="'application-' + application.id" [class.is-notification-target]="notificationTarget === 'application-' + application.id">
+              <div class="application-card-heading"><div><strong>{{ application.trainer.name }}</strong><p>Status: <span class="role-pill">{{ application.status }}</span>@if (application.status === 'Applied') { <span class="new-application">New application</span> }</p></div><span class="panel-footnote">Applied {{ application.createdAt | date: 'mediumDate' }}</span></div>
+              <div class="trainer-skill-list" aria-label="Trainer skills">@for (skill of application.trainer.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div>
+              <nav class="trainer-links" aria-label="Trainer profile links">
+                <a [href]="application.trainer.profileLinks.resume" target="_blank" rel="noopener noreferrer">Resume</a>
+                <a [href]="application.trainer.profileLinks.github" target="_blank" rel="noopener noreferrer">GitHub</a>
+                <a [href]="application.trainer.profileLinks.linkedin" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                <a [href]="application.trainer.profileLinks.leetcode" target="_blank" rel="noopener noreferrer">LeetCode</a>
+              </nav>
               @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
               @if (application.expectedRate !== null) { <p>Expected daily rate: {{ application.expectedRate | currency: 'INR' }}</p> }
               @if (application.status === 'Applied' || application.status === 'InterviewScheduled') {
-                <div class="interview-editor">
-                  <label class="field"><span>Meeting platform</span><select [value]="interviewDraft(application).provider" (change)="updateInterviewDraft(application, 'provider', $any($event.target).value)">@for (provider of interviewProviders; track provider) { <option [value]="provider">{{ provider }}</option> }</select></label>
-                  <label class="field"><span>Google Meet / Zoom / Teams link</span><input type="url" [value]="interviewDraft(application).meetingUrl" (input)="updateInterviewDraft(application, 'meetingUrl', $any($event.target).value)" placeholder="https://meet.google.com/..." /></label>
-                  <label class="field"><span>Interview date and time</span><input type="datetime-local" [value]="interviewDraft(application).scheduledAt" (input)="updateInterviewDraft(application, 'scheduledAt', $any($event.target).value)" /></label>
-                  <label class="field"><span>Interview note</span><input [value]="interviewDraft(application).notes" (input)="updateInterviewDraft(application, 'notes', $any($event.target).value)" /></label>
-                  <button class="secondary-button field-wide" type="button" [disabled]="applicationBusy() === application.id" (click)="scheduleInterview(application)">{{ application.interview ? 'Update interview' : 'Schedule interview' }}</button>
-                </div>
                 <div class="application-actions">
                   <button class="primary-button" type="button" [disabled]="application.status !== 'InterviewScheduled' || applicationBusy() === application.id" (click)="decideApplication(application, 'Accepted')">Accept trainer</button>
                   <button class="danger-button" type="button" [disabled]="applicationBusy() === application.id" (click)="decideApplication(application, 'Rejected')">Reject</button>

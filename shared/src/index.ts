@@ -30,6 +30,37 @@ export const RequirementStatusSchema = z.enum(REQUIREMENT_STATUSES);
 export const ApplicationStatusSchema = z.enum(APPLICATION_STATUSES);
 export const InterviewProviderSchema = z.enum(INTERVIEW_PROVIDERS);
 
+function isHttpsUrl(value: string): boolean {
+  try { return new URL(value).protocol === 'https:'; } catch { return false; }
+}
+
+function serviceUrl(hosts: string[], label: string) {
+  return z.url().trim().max(500).refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' && hosts.includes(url.hostname.toLowerCase());
+    } catch { return false; }
+  }, `Enter a valid HTTPS ${label} profile link.`);
+}
+
+const ResumeUrlSchema = z.url().trim().max(500).refine(isHttpsUrl, 'Enter an HTTPS resume link.');
+const GitHubUrlSchema = serviceUrl(['github.com', 'www.github.com'], 'GitHub');
+const LinkedInUrlSchema = serviceUrl(['linkedin.com', 'www.linkedin.com'], 'LinkedIn');
+const LeetCodeUrlSchema = serviceUrl(['leetcode.com', 'www.leetcode.com'], 'LeetCode');
+
+function matchesMeetingProvider(value: string, provider: (typeof INTERVIEW_PROVIDERS)[number]): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:') return false;
+    const host = url.hostname.toLowerCase();
+    if (provider === 'Google Meet') return host === 'meet.google.com';
+    if (provider === 'Zoom') return host === 'zoom.us' || host.endsWith('.zoom.us');
+    return host === 'teams.microsoft.com' || host.endsWith('.teams.microsoft.com') || host === 'teams.live.com';
+  } catch { return false; }
+}
+
+const MeetingUrlSchema = z.url().refine((value) => INTERVIEW_PROVIDERS.some((provider) => matchesMeetingProvider(value, provider)), 'Enter an HTTPS Google Meet, Zoom, or Teams link.');
+
 export const RegisterSchema = z
   .object({
     name: z.string().trim().min(2).max(80),
@@ -157,19 +188,41 @@ export const StatusChangeSchema = z.object({ status: RequirementStatusSchema });
 export const ApplyToRequirementSchema = z.object({
   coverNote: text(2000).default(''),
   expectedRate: z.number().nonnegative().nullable().default(null),
+  skills: z.array(text(60).min(1)).min(1, 'Add at least one relevant skill.').max(20),
+  resumeUrl: ResumeUrlSchema,
+  githubUrl: GitHubUrlSchema,
+  linkedinUrl: LinkedInUrlSchema,
+  leetcodeUrl: LeetCodeUrlSchema,
 });
+
+export const DemoSlotSchema = z.object({
+  provider: InterviewProviderSchema,
+  meetingUrl: z.url(),
+  scheduledAt: z.iso.datetime({ offset: true }),
+}).superRefine(({ provider, meetingUrl }, context) => {
+  if (!matchesMeetingProvider(meetingUrl, provider)) context.addIssue({ code: 'custom', path: ['meetingUrl'], message: 'Enter an HTTPS meeting link for the selected provider.' });
+});
+
+export const DemoSlotsUpdateSchema = z.object({
+  slots: z.array(DemoSlotSchema).max(20),
+}).superRefine(({ slots }, context) => {
+  const times = new Set<number>();
+  slots.forEach((slot, index) => {
+    const time = new Date(slot.scheduledAt).getTime();
+    if (times.has(time)) context.addIssue({ code: 'custom', path: ['slots', index, 'scheduledAt'], message: 'Each demo slot must have a unique date and time.' });
+    times.add(time);
+  });
+});
+
+export const BookDemoSlotSchema = z.object({ scheduledAt: z.iso.datetime({ offset: true }) });
 
 export const InterviewScheduleSchema = z.object({
   provider: InterviewProviderSchema,
-  meetingUrl: z.url().refine((value) => {
-    const host = new URL(value).hostname.toLowerCase();
-    if (value.startsWith('http://')) return false;
-    if (host === 'meet.google.com') return true;
-    if (host === 'zoom.us' || host.endsWith('.zoom.us')) return true;
-    return host === 'teams.microsoft.com' || host.endsWith('.teams.microsoft.com') || host === 'teams.live.com';
-  }, 'Enter an HTTPS meeting link for the selected provider.'),
+  meetingUrl: z.url(),
   scheduledAt: z.iso.datetime({ offset: true }),
   notes: text(500).default(''),
+}).superRefine(({ provider, meetingUrl }, context) => {
+  if (!matchesMeetingProvider(meetingUrl, provider)) context.addIssue({ code: 'custom', path: ['meetingUrl'], message: 'Enter an HTTPS meeting link for the selected provider.' });
 });
 
 export const ApplicationDecisionSchema = z.object({
@@ -244,6 +297,9 @@ export const InboxQuerySchema = z.object({
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type ApplyToRequirementInput = z.input<typeof ApplyToRequirementSchema>;
+export type DemoSlotInput = z.input<typeof DemoSlotSchema>;
+export type DemoSlotsUpdateInput = z.input<typeof DemoSlotsUpdateSchema>;
+export type BookDemoSlotInput = z.input<typeof BookDemoSlotSchema>;
 export type InterviewScheduleInput = z.input<typeof InterviewScheduleSchema>;
 export type ApplicationDecision = z.input<typeof ApplicationDecisionSchema>;
 export type OrganizationInput = z.infer<typeof OrganizationInputSchema>;

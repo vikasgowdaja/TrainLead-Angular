@@ -17,7 +17,11 @@
 .card-title-group h3 a:hover { color: var(--brand); }
 .location { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-size: 11px; }
 .location .material-symbols-outlined { color: var(--accent); font-size: 15px; }
-.opportunity-label { display: inline-flex; flex: 0 0 44px; width: 44px; height: 44px; align-items: center; justify-content: center; padding: 0; border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent); border-radius: 6px; color: var(--brand); font-size: 9px; font-weight: 700; letter-spacing: .8px; }
+.opportunity-label { display: inline-flex; flex: 0 0 auto; min-height: 24px; align-items: center; padding: 0 9px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.opportunity-label.is-open { border-color: #6b9637; background: #e7f2d5; color: #355d20; }
+.opportunity-label.is-closed { border-color: #b53135; background: #f9e3e1; color: #a32129; transform: rotate(-3deg); }
+:host-context(.dark-theme) .opportunity-label.is-open { color: #d3e7ae; }
+:host-context(.dark-theme) .opportunity-label.is-closed { color: #ffb6b1; }
 .card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
 .skill-tag,
 .repeat-tag { display: inline-flex; align-items: center; min-height: 25px; padding: 0 8px; border-radius: 3px; font-size: 10px; font-weight: 600; }

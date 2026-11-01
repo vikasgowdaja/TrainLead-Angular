@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AddMemberSchema, ApplicationDecisionSchema, ApplyToRequirementSchema, CreateRequirementSchema, InterviewScheduleSchema, RequirementInputSchema, RequirementQuerySchema, canTransition, skillKey } from './index.js';
+import { AddMemberSchema, ApplicationDecisionSchema, ApplyToRequirementSchema, CreateRequirementSchema, DemoSlotsUpdateSchema, InterviewScheduleSchema, RequirementInputSchema, RequirementQuerySchema, canTransition, skillKey } from './index.js';
 
 const mysuru = {
   title: 'AngularJS foundations for engineering students',
@@ -51,10 +51,28 @@ describe('AddMemberSchema', () => {
 });
 
 describe('application workflow schemas', () => {
-  it('accepts a trainer note and optional expected rate', () => {
-    expect(ApplyToRequirementSchema.parse({ coverNote: 'AngularJS classroom experience', expectedRate: 4000 })).toMatchObject({
-      coverNote: 'AngularJS classroom experience', expectedRate: 4000,
+  const trainerLinks = {
+    skills: ['AngularJS', 'JavaScript'],
+    resumeUrl: 'https://drive.google.com/file/d/resume',
+    githubUrl: 'https://github.com/trainer',
+    linkedinUrl: 'https://www.linkedin.com/in/trainer',
+    leetcodeUrl: 'https://leetcode.com/trainer',
+  };
+
+  it('requires HTTPS resume and coding profile links', () => {
+    expect(ApplyToRequirementSchema.parse({ coverNote: 'AngularJS classroom experience', expectedRate: 4000, ...trainerLinks })).toMatchObject({
+      coverNote: 'AngularJS classroom experience', expectedRate: 4000, ...trainerLinks,
     });
+    expect(ApplyToRequirementSchema.safeParse({ coverNote: 'No links' }).success).toBe(false);
+    expect(ApplyToRequirementSchema.safeParse({ ...trainerLinks, skills: [] }).success).toBe(false);
+    expect(ApplyToRequirementSchema.safeParse({ ...trainerLinks, githubUrl: 'https://example.com/trainer' }).success).toBe(false);
+  });
+
+  it('accepts only unique future-format demo slot values', () => {
+    const slot = { provider: 'Google Meet', meetingUrl: 'https://meet.google.com/abc-defg-hij', scheduledAt: '2026-11-02T09:00:00+05:30' };
+    expect(DemoSlotsUpdateSchema.safeParse({ slots: [slot] }).success).toBe(true);
+    expect(DemoSlotsUpdateSchema.safeParse({ slots: [slot, slot] }).success).toBe(false);
+    expect(DemoSlotsUpdateSchema.safeParse({ slots: [slot, { ...slot, scheduledAt: '2026-11-02T03:30:00Z' }] }).success).toBe(false);
   });
 
   it('accepts an HTTPS video interview link from the chosen provider', () => {
@@ -92,6 +110,7 @@ describe('canTransition', () => {
   it('allows pausing and reopening but not reviving a cancelled requirement', () => {
     expect(canTransition('Open', 'Paused')).toBe(true);
     expect(canTransition('Paused', 'Open')).toBe(true);
+    expect(canTransition('Closed', 'Open')).toBe(true);
     expect(canTransition('Cancelled', 'Open')).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { DELIVERY_MODES, REQUIREMENT_STATUSES, SUPPORT_STATUSES } from '@trainlead/shared';
+import { DELIVERY_MODES, INTERVIEW_PROVIDERS, REQUIREMENT_STATUSES, SUPPORT_STATUSES } from '@trainlead/shared';
 import { Schema, model, type HydratedDocument, type Types } from 'mongoose';
 
 interface RequirementRecord {
@@ -26,6 +26,7 @@ interface RequirementRecord {
   travel: (typeof SUPPORT_STATUSES)[number];
   food: (typeof SUPPORT_STATUSES)[number];
   stay: (typeof SUPPORT_STATUSES)[number];
+  demoSlots: { provider: (typeof INTERVIEW_PROVIDERS)[number]; meetingUrl: string; scheduledAt: Date }[];
   status: (typeof REQUIREMENT_STATUSES)[number];
   publishedAt: Date | null;
   matchKey: string;
@@ -60,6 +61,10 @@ const RequirementSchema = new Schema<RequirementRecord>(
     travel: { type: String, enum: SUPPORT_STATUSES, default: 'Unknown' },
     food: { type: String, enum: SUPPORT_STATUSES, default: 'Unknown' },
     stay: { type: String, enum: SUPPORT_STATUSES, default: 'Unknown' },
+    demoSlots: {
+      type: [{ provider: { type: String, enum: INTERVIEW_PROVIDERS, required: true }, meetingUrl: { type: String, required: true }, scheduledAt: { type: Date, required: true } }],
+      default: [],
+    },
     status: { type: String, enum: REQUIREMENT_STATUSES, default: 'Draft', index: true },
     publishedAt: { type: Date, default: null },
     // city|start|end; requirements sharing it (and a skill) are candidates for the same opportunity.

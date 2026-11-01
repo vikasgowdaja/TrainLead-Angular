@@ -11,7 +11,7 @@
             <span class="material-symbols-outlined" aria-hidden="true">edit</span>
           </a>
         }
-        <span class="opportunity-label">{{ requirement().status }}</span>
+        <span class="opportunity-label" [class.is-open]="requirement().status === 'Open'" [class.is-closed]="requirement().status === 'Closed'">{{ requirement().status }}</span>
       </div>
     </div>
 
@@ -50,8 +50,16 @@
       </div>
       <span>{{ requirement().postingCount }} {{ requirement().postingCount === 1 ? 'posting' : 'postings' }}<span class="footer-separator">·</span>{{ requirement().groupCount }} {{ requirement().groupCount === 1 ? 'vendor' : 'vendors' }}</span>
     </div>
+    @if (requirement().canManage && requirement().pendingApplications > 0) {
+      <a class="application-notice" [routerLink]="['/requirements', requirement().id]" fragment="applications" [attr.aria-label]="requirement().pendingApplications + ' new trainer applications. Review applications'">
+        <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span>{{ requirement().pendingApplications }} new {{ requirement().pendingApplications === 1 ? 'application' : 'applications' }}
+      </a>
+    }
     @if (requirement().paymentDate) {
       <span class="payment-date"><span class="material-symbols-outlined" aria-hidden="true">payments</span>Payment {{ requirement().paymentDate }}</span>
+    }
+    @if (requirement().canApply && requirement().status === 'Open') {
+      <a class="apply-cta" [routerLink]="['/requirements', requirement().id]"><span class="material-symbols-outlined" aria-hidden="true">send</span>View &amp; apply</a>
     }
   </div>
 </article>

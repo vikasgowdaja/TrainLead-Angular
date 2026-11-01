@@ -4,10 +4,10 @@ import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DELIVERY_MODES, SUPPORT_STATUSES, type RequirementDetail } from '@trainlead/shared/domain';
+import { DELIVERY_MODES, SUPPORT_STATUSES, type RequirementDetail, type RequirementStatus } from '@trainlead/shared/domain';
 import type { RequirementInput, SourceInput } from '@trainlead/shared';
 import type { ExtractionConfidence, SmartExtractionResult } from '@trainlead/shared/domain';
-import { EMPTY, catchError, combineLatest, finalize, startWith } from 'rxjs';
+import { EMPTY, catchError, combineLatest, finalize, of, startWith, switchMap } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { MarketplaceService } from '../../core/marketplace.service';
 import { describeHttpError } from '../../core/http-error';
@@ -55,6 +55,7 @@ export class RequirementFormPage {
 
   protected readonly form = this.fb.group({
     title: this.fb.nonNullable.control('', [Validators.required, Validators.minLength(3), Validators.maxLength(140)]),
+    status: this.fb.nonNullable.control<RequirementStatus>('Draft'),
     description: this.fb.nonNullable.control(''),
     domain: this.fb.nonNullable.control(''),
     skills: this.fb.nonNullable.control('', Validators.required),
@@ -93,6 +94,7 @@ export class RequirementFormPage {
           this.existing.set(data);
           this.form.patchValue({
             title: data.title, description: data.description, domain: data.domain, skills: data.skills.join(', '),
+            status: data.status,
             city: data.city, state: data.state, mode: data.mode, startDate: data.startDate, endDate: data.endDate,
             durationDays: data.durationDays, audience: data.audience, studentCount: data.studentCount,
             experienceRequired: data.experienceRequired, budgetMin: data.budgetMin, budgetMax: data.budgetMax,
@@ -121,6 +123,11 @@ export class RequirementFormPage {
   protected setEditorMode(mode: 'manual' | 'smart'): void {
     this.editorMode.set(mode);
     if (mode === 'smart' && !this.extraction()) this.smartInputMode.set('text');
+  }
+
+  protected availableStatuses(): RequirementStatus[] {
+    const requirement = this.existing();
+    return requirement ? [requirement.status, ...requirement.allowedStatuses.filter((status) => status !== requirement.status)] : [];
   }
 
   protected setSmartInputMode(mode: 'text' | 'image' | 'table'): void {
@@ -268,7 +275,7 @@ export class RequirementFormPage {
       this.errorMessage.set('Only the posting organization can edit this requirement.');
       return;
     }
-    const value = this.form.getRawValue();
+    const { status, ...value } = this.form.getRawValue();
     const requirement: RequirementInput = {
       ...value,
       mode: value.mode as (typeof DELIVERY_MODES)[number],
@@ -286,17 +293,12 @@ export class RequirementFormPage {
       ? { sourceType: 'Import', groupName: '', rawText: extraction.extractedText.slice(0, 20_000), postedAt: null }
       : undefined;
     const request = this.id
-      ? this.api.updateRequirement(this.id, requirement)
+      ? this.api.updateRequirement(this.id, requirement).pipe(
+        switchMap(({ data }) => status === data.status ? of({ data }) : this.api.changeStatus(data.id, status)),
+      )
       : this.api.createRequirement({ requirement, publish, ...(source ? { source } : {}) });
     request.pipe(finalize(() => this.saving.set(false))).subscribe({
       next: ({ data }) => {
-        if (this.id && publish && data.status === 'Draft') {
-          this.api.changeStatus(data.id, 'Open').subscribe({
-            next: () => void this.router.navigate(['/requirements', data.id]),
-            error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
-          });
-          return;
-        }
         void this.router.navigate(['/requirements', data.id]);
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),

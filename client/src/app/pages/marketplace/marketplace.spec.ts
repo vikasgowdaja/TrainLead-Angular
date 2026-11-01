@@ -19,7 +19,7 @@ const summary: RequirementSummary = {
   mode: 'Offline', startDate: '2026-11-02', endDate: '2026-11-07', durationDays: 6,
   audience: '6th semester engineering students', studentCount: 60, travel: 'Provided', food: 'Provided', stay: 'Provided',
   paymentDueDate: null, status: 'Open', organization: { id: 'org-1', name: 'SkillBridge Academy' },
-  groupId: null, groupSize: 1, sourceCount: 1, vendors: [{ id: 'org-1', name: 'SkillBridge Academy' }],
+  groupId: null, groupSize: 1, sourceCount: 1, pendingApplications: 0, vendors: [{ id: 'org-1', name: 'SkillBridge Academy' }],
   canManage: false, createdAt: '2026-11-01T04:00:00.000Z', updatedAt: '2026-11-01T04:00:00.000Z',
 };
 
@@ -57,6 +57,7 @@ describe('MarketplacePage', () => {
     expect(compiled.textContent).toContain('AngularJS foundations');
     expect(compiled.textContent).toContain('SkillBridge Academy');
     expect(compiled.querySelector('.overview-main strong')?.textContent).toContain('1');
+    expect(compiled.querySelector('.apply-cta')?.textContent).toContain('View & apply');
     expect(compiled.querySelector('.profile-avatar')?.textContent).toBe('AR');
   });
 
@@ -89,5 +90,29 @@ describe('MarketplacePage', () => {
     trainerView.detectChanges();
     flushDashboard(trainerView);
     expect((trainerView.nativeElement as HTMLElement).querySelector('a[href="/admin/users"]')).toBeNull();
+  });
+
+  it('shows vendor application notifications linked to the matching application', () => {
+    signInAs('Vendor');
+    const fixture = TestBed.createComponent(MarketplacePage);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    const notification = {
+      applicationId: 'app-1', requirementId: 'req-1', requirementTitle: 'AngularJS foundations',
+      trainerName: 'Ananya Rao', status: 'Applied', createdAt: '2026-11-01T04:00:00.000Z', updatedAt: '2026-11-01T04:00:00.000Z',
+    };
+    http.expectOne('/api/applications/notifications').flush({ data: [notification], pendingCount: 1 });
+    http.expectOne('/api/organizations/me').flush({ error: 'Organization setup required' }, { status: 409, statusText: 'Conflict' });
+    flushDashboard(fixture);
+
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.notification-toggle')?.click();
+    fixture.detectChanges();
+    http.expectOne('/api/applications/notifications').flush({ data: [notification], pendingCount: 1 });
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('.notification-entry');
+    expect(link?.getAttribute('href')).toBe('/requirements/req-1#application-app-1');
+    expect(link?.textContent).toContain('Ananya Rao');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.notification-count')?.textContent).toBe('1');
   });
 });

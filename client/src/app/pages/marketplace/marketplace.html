@@ -34,6 +34,28 @@
       @if (organizationExists()) {
         <a class="text-link" routerLink="/organization">Organization</a>
       }
+      @if (auth.currentUser()?.role === 'Vendor') {
+        <div class="notification-wrap">
+          <button class="icon-button notification-toggle" type="button" aria-label="Notifications" title="Notifications" [attr.aria-expanded]="notificationsOpen()" aria-controls="application-notifications" (click)="toggleNotifications()">
+            <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
+            @if (pendingApplicationCount() > 0) { <span class="notification-count">{{ pendingApplicationCount() }}</span> }
+          </button>
+          @if (notificationsOpen()) {
+            <section class="notification-panel" id="application-notifications" aria-label="Recent notifications">
+              <header class="notification-panel-heading"><h2>Recent activity</h2><span>{{ pendingApplicationCount() }} pending</span></header>
+              @if (notificationsLoading()) { <p class="notification-empty">Loading notifications…</p> }
+              @if (notificationsError(); as message) { <p class="notification-empty" role="alert">{{ message }}</p> }
+              @if (!notificationsLoading() && !notificationsError() && applicationNotifications().length === 0) { <p class="notification-empty">No recent application activity.</p> }
+              @for (notification of applicationNotifications(); track notification.applicationId) {
+                <a class="notification-entry" [routerLink]="['/requirements', notification.requirementId]" [fragment]="'application-' + notification.applicationId" (click)="closeNotifications()">
+                  <span class="material-symbols-outlined notification-entry-icon" aria-hidden="true">{{ notification.status === 'Applied' ? 'person_add' : 'update' }}</span>
+                  <span class="notification-entry-copy"><strong>{{ notification.status === 'Applied' ? 'New trainer application' : 'Application ' + notification.status }}</strong><span>{{ notification.trainerName }} · {{ notification.requirementTitle }}</span><time>{{ notification.updatedAt | date: 'short' }}</time></span>
+                </a>
+              }
+            </section>
+          }
+        </div>
+      }
       <button
         class="icon-button theme-toggle"
         type="button"

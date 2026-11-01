@@ -1,9 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { TitleCasePipe } from '@angular/common';
+import { DatePipe, TitleCasePipe } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { RequirementQuery } from '@trainlead/shared';
-import type { DashboardStats, ExtractedRequirement, InboxItemView, RequirementSummary, SourceType } from '@trainlead/shared/domain';
+import type { ApplicationNotificationView, DashboardStats, ExtractedRequirement, InboxItemView, RequirementSummary, SourceType } from '@trainlead/shared/domain';
 import { DELIVERY_MODES, REQUIREMENT_STATUSES, REQUIREMENT_SORTS, SOURCE_TYPES } from '@trainlead/shared/domain';
 import type { RequirementInput } from '@trainlead/shared';
 import { EMPTY, Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin } from 'rxjs';
@@ -15,7 +15,7 @@ import type { Requirement } from '../../requirement.model';
 
 @Component({
   selector: 'app-marketplace-page',
-  imports: [RequirementCard, RouterLink, TitleCasePipe],
+  imports: [RequirementCard, RouterLink, DatePipe, TitleCasePipe],
   templateUrl: './marketplace.html',
 })
 export class MarketplacePage {
@@ -43,6 +43,11 @@ export class MarketplacePage {
   protected readonly organizationNeeded = signal(false);
   protected readonly organizationExists = signal(false);
   protected readonly inboxEdits = signal<Record<string, Partial<ExtractedRequirement>>>({});
+  protected readonly applicationNotifications = signal<ApplicationNotificationView[]>([]);
+  protected readonly pendingApplicationCount = signal(0);
+  protected readonly notificationsOpen = signal(false);
+  protected readonly notificationsLoading = signal(false);
+  protected readonly notificationsError = signal<string | null>(null);
   protected readonly statuses = REQUIREMENT_STATUSES;
   protected readonly modes = DELIVERY_MODES;
   protected readonly sorts = REQUIREMENT_SORTS;
@@ -69,6 +74,7 @@ export class MarketplacePage {
       this.updateFilters({ [key]: value || undefined });
     });
     if (this.auth.hasRole('Vendor')) {
+      this.loadApplicationNotifications();
       this.marketplace.getMyOrganization().pipe(
         catchError((error: unknown) => {
           if (typeof error === 'object' && error !== null && 'status' in error && error.status === 409) {
@@ -99,6 +105,28 @@ export class MarketplacePage {
         },
         error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
       });
+  }
+
+  protected toggleNotifications(): void {
+    const open = !this.notificationsOpen();
+    this.notificationsOpen.set(open);
+    if (open) this.loadApplicationNotifications();
+  }
+
+  protected closeNotifications(): void {
+    this.notificationsOpen.set(false);
+  }
+
+  private loadApplicationNotifications(): void {
+    this.notificationsLoading.set(true);
+    this.notificationsError.set(null);
+    this.marketplace.getApplicationNotifications().pipe(finalize(() => this.notificationsLoading.set(false))).subscribe({
+      next: ({ data, pendingCount }) => {
+        this.applicationNotifications.set(data);
+        this.pendingApplicationCount.set(pendingCount);
+      },
+      error: (error: unknown) => this.notificationsError.set(describeHttpError(error)),
+    });
   }
 
   protected loadMore(): void {
@@ -307,6 +335,7 @@ export class MarketplacePage {
       title: item.title,
       status: item.status,
       canManage: item.canManage,
+      canApply: this.auth.hasRole('Trainer'),
       groupId: item.groupId,
       stack: item.skills,
       dateLabel: `${this.formatDate(item.startDate)} - ${this.formatDate(item.endDate)}`,
@@ -315,6 +344,7 @@ export class MarketplacePage {
       audience: item.audience,
       tfa: item.travel,
       paymentDate: item.paymentDueDate ? this.formatDate(item.paymentDueDate) : null,
+      pendingApplications: item.pendingApplications,
       postingCount: item.sourceCount,
       groupCount: sourceNames.length,
       sources: sourceNames,

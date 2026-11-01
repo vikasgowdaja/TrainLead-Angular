@@ -60,6 +60,9 @@
       }
       @if (id || editorMode() === 'manual' || extraction()) {
       <form [formGroup]="form" (ngSubmit)="save(true)" class="requirement-form" novalidate>
+        @if (existing(); as requirement) {
+          <label class="field"><span>Requirement status</span><select formControlName="status">@for (status of availableStatuses(); track status) { <option [value]="status">{{ status }}</option> }</select></label>
+        }
         <label class="field field-wide"><span>Title</span><input formControlName="title" />@if (form.controls.title.touched && form.controls.title.invalid) { <small class="field-error">Enter a title with at least 3 characters.</small> }</label>
         <label class="field field-wide"><span>Description</span><textarea rows="3" formControlName="description"></textarea></label>
         <label class="field"><span>Domain</span><input formControlName="domain" placeholder="Frontend development" /></label>
@@ -85,8 +88,12 @@
         </fieldset>
         @if (errorMessage(); as message) { <p class="form-error field-wide" role="alert">{{ message }}</p> }
         <div class="form-actions field-wide">
-          <button class="secondary-button" type="button" [disabled]="saving()" (click)="save(false)">Save draft</button>
-          <button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Publish requirement' }}</button>
+          @if (!id) {
+            <button class="secondary-button" type="button" [disabled]="saving()" (click)="save(false)">Save draft</button>
+            <button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Publish requirement' }}</button>
+          } @else {
+            <button class="primary-button" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save changes' }}</button>
+          }
         </div>
       </form>
       }

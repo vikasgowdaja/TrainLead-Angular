@@ -1,8 +1,9 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import type { ApplicationView, InterviewProvider, RequirementDetail, RequirementStatus, SourceType, SourceView } from '@trainlead/shared/domain';
-import { INTERVIEW_PROVIDERS, SOURCE_TYPES } from '@trainlead/shared/domain';
+import type { DemoSlotInput } from '@trainlead/shared';
+import type { ApplicationView, DemoSlotView, RequirementDetail, RequirementStatus, SourceType, SourceView } from '@trainlead/shared/domain';
+import { SOURCE_TYPES } from '@trainlead/shared/domain';
 import { finalize } from 'rxjs';
 import { MarketplaceService } from '../../core/marketplace.service';
 import { describeHttpError } from '../../core/http-error';
@@ -17,7 +18,9 @@ export class RequirementDetailPage {
   private readonly api = inject(MarketplaceService);
   private readonly router = inject(Router);
   protected readonly auth = inject(AuthService);
-  private readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id')!;
+  private readonly route = inject(ActivatedRoute);
+  private readonly id = this.route.snapshot.paramMap.get('id')!;
+  protected readonly notificationTarget = this.route.snapshot.fragment;
   protected readonly requirement = signal<RequirementDetail | null>(null);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
@@ -31,12 +34,20 @@ export class RequirementDetailPage {
   protected readonly myApplication = signal<ApplicationView | null>(null);
   protected readonly myApplicationLoaded = signal(false);
   protected readonly applications = signal<ApplicationView[]>([]);
-  protected readonly interviewProviders = INTERVIEW_PROVIDERS;
   protected readonly coverNote = signal('');
   protected readonly expectedRate = signal('');
+  protected readonly skillsInput = signal('');
+  protected readonly resumeUrl = signal('');
+  protected readonly githubUrl = signal('');
+  protected readonly linkedinUrl = signal('');
+  protected readonly leetcodeUrl = signal('');
   protected readonly applying = signal(false);
   protected readonly applicationBusy = signal<string | null>(null);
-  protected readonly interviewDrafts = signal<Record<string, { provider: InterviewProvider; meetingUrl: string; scheduledAt: string; notes: string }>>({});
+  protected readonly demoProvider = signal<'Google Meet' | 'Zoom' | 'Microsoft Teams'>('Google Meet');
+  protected readonly demoMeetingUrl = signal('');
+  protected readonly demoSlotDateTime = signal('');
+  protected readonly selectedDemoSlot = signal('');
+  protected readonly savingDemoSlots = signal(false);
 
   constructor() {
     this.load();
@@ -48,6 +59,12 @@ export class RequirementDetailPage {
     this.api.getRequirement(this.id).pipe(finalize(() => this.loading.set(false))).subscribe({
       next: ({ data }) => {
         this.requirement.set(data);
+        const firstSlot = data.demoSlots[0];
+        if (firstSlot?.meetingUrl && !this.demoMeetingUrl()) {
+          this.demoProvider.set(firstSlot.provider);
+          this.demoMeetingUrl.set(firstSlot.meetingUrl);
+        }
+        if (!this.selectedDemoSlot()) this.selectedDemoSlot.set(data.demoSlots.find((slot) => slot.available)?.scheduledAt ?? '');
         if (data.canManage) this.loadApplications();
         else if (this.auth.hasRole('Trainer')) this.loadMyApplication();
       },
@@ -61,15 +78,29 @@ export class RequirementDetailPage {
 
   protected apply(): void {
     if (this.applying()) return;
+    if (![this.resumeUrl(), this.githubUrl(), this.linkedinUrl(), this.leetcodeUrl()].every((value) => value.trim())) {
+      this.errorMessage.set('Add your resume, GitHub, LinkedIn, and LeetCode links before applying.');
+      return;
+    }
     const rawRate = this.expectedRate().trim();
     const expectedRate = rawRate ? Number(rawRate) : null;
     if (rawRate && (!Number.isFinite(expectedRate) || expectedRate! < 0)) {
       this.errorMessage.set('Enter a valid non-negative expected rate.');
       return;
     }
+    const skills = [...new Set(this.skillsInput().split(',').map((skill) => skill.trim()).filter(Boolean))];
+    if (!skills.length) {
+      this.errorMessage.set('Add at least one relevant skill before applying.');
+      return;
+    }
     this.applicationBusy.set(null);
     this.applying.set(true);
-    this.api.applyToRequirement(this.id, { coverNote: this.coverNote().trim(), expectedRate }).pipe(finalize(() => this.applying.set(false))).subscribe({
+    this.api.applyToRequirement(this.id, {
+      coverNote: this.coverNote().trim(), expectedRate,
+      skills,
+      resumeUrl: this.resumeUrl().trim(), githubUrl: this.githubUrl().trim(),
+      linkedinUrl: this.linkedinUrl().trim(), leetcodeUrl: this.leetcodeUrl().trim(),
+    }).pipe(finalize(() => this.applying.set(false))).subscribe({
       next: ({ data }) => {
         this.myApplication.set(data);
         this.successMessage.set('Application sent to the Vendor.');
@@ -78,44 +109,47 @@ export class RequirementDetailPage {
     });
   }
 
-  protected updateInterviewDraft(application: ApplicationView, field: 'provider' | 'meetingUrl' | 'scheduledAt' | 'notes', value: string): void {
-    const current = this.interviewDrafts()[application.id] ?? {
-      provider: application.interview?.provider ?? 'Google Meet',
-      meetingUrl: application.interview?.meetingUrl ?? '',
-      scheduledAt: application.interview ? this.toLocalDateTime(application.interview.scheduledAt) : '',
-      notes: application.interview?.notes ?? '',
-    };
-    this.interviewDrafts.update((drafts) => ({
-      ...drafts,
-      [application.id]: { ...current, [field]: value } as typeof current,
-    }));
-  }
-
-  protected interviewDraft(application: ApplicationView) {
-    return this.interviewDrafts()[application.id] ?? {
-      provider: application.interview?.provider ?? 'Google Meet',
-      meetingUrl: application.interview?.meetingUrl ?? '',
-      scheduledAt: application.interview ? this.toLocalDateTime(application.interview.scheduledAt) : '',
-      notes: application.interview?.notes ?? '',
-    };
-  }
-
-  protected scheduleInterview(application: ApplicationView): void {
-    const draft = this.interviewDraft(application);
-    const scheduledAt = draft.scheduledAt ? new Date(draft.scheduledAt) : null;
-    if (!draft.meetingUrl.trim() || !scheduledAt || !Number.isFinite(scheduledAt.getTime())) {
-      this.errorMessage.set('Choose a meeting provider, valid meeting URL, and interview time.');
+  protected addDemoSlot(): void {
+    const item = this.requirement();
+    const date = this.demoSlotDateTime() ? new Date(this.demoSlotDateTime()) : null;
+    if (!item || !date || !Number.isFinite(date.getTime()) || date <= new Date() || !this.demoMeetingUrl().trim()) {
+      this.errorMessage.set('Choose a future time and a valid meeting link before adding a demo slot.');
       return;
     }
+    const slots: DemoSlotInput[] = item.demoSlots.map(({ provider, meetingUrl, scheduledAt }) => ({ provider, meetingUrl: meetingUrl ?? '', scheduledAt }));
+    slots.push({ provider: this.demoProvider(), meetingUrl: this.demoMeetingUrl().trim(), scheduledAt: date.toISOString() });
+    this.saveDemoSlots(slots);
+  }
+
+  protected removeDemoSlot(slot: DemoSlotView): void {
+    const item = this.requirement();
+    if (!item || !slot.available) return;
+    this.saveDemoSlots(item.demoSlots.filter((candidate) => candidate.scheduledAt !== slot.scheduledAt)
+      .map(({ provider, meetingUrl, scheduledAt }) => ({ provider, meetingUrl: meetingUrl ?? '', scheduledAt })));
+  }
+
+  protected bookDemoSlot(): void {
+    const application = this.myApplication();
+    const scheduledAt = this.selectedDemoSlot();
+    if (!application || !scheduledAt) return;
     this.applicationBusy.set(application.id);
-    this.api.scheduleApplicationInterview(application.id, {
-      ...draft,
-      meetingUrl: draft.meetingUrl.trim(),
-      scheduledAt: scheduledAt.toISOString(),
-    }).pipe(finalize(() => this.applicationBusy.set(null))).subscribe({
+    this.api.bookDemoSlot(application.id, { scheduledAt }).pipe(finalize(() => this.applicationBusy.set(null))).subscribe({
       next: ({ data }) => {
-        this.replaceApplication(data);
-        this.successMessage.set('Video interview scheduled or updated.');
+        this.myApplication.set(data);
+        this.load();
+        this.successMessage.set('Demo slot booked. Use the meeting link at the selected time.');
+      },
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
+    });
+  }
+
+  private saveDemoSlots(slots: DemoSlotInput[]): void {
+    this.savingDemoSlots.set(true);
+    this.api.updateRequirementDemoSlots(this.id, { slots }).pipe(finalize(() => this.savingDemoSlots.set(false))).subscribe({
+      next: ({ data }) => {
+        this.requirement.set(data);
+        this.demoSlotDateTime.set('');
+        this.successMessage.set('Demo slots updated.');
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });
@@ -142,18 +176,18 @@ export class RequirementDetailPage {
 
   private loadApplications(): void {
     this.api.listRequirementApplications(this.id).subscribe({
-      next: ({ data }) => this.applications.set(data),
+      next: ({ data }) => {
+        this.applications.set(data);
+        if (this.notificationTarget) {
+          window.setTimeout(() => document.getElementById(this.notificationTarget!)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
+        }
+      },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });
   }
 
   private replaceApplication(application: ApplicationView): void {
     this.applications.update((items) => items.map((item) => item.id === application.id ? application : item));
-  }
-
-  private toLocalDateTime(value: string): string {
-    const date = new Date(value);
-    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
   }
 
   protected changeStatus(status: RequirementStatus): void {

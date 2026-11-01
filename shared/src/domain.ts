@@ -26,12 +26,20 @@ export type RequirementSort = (typeof REQUIREMENT_SORTS)[number];
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 export type InterviewProvider = (typeof INTERVIEW_PROVIDERS)[number];
 
+export interface DemoSlotView {
+  provider: InterviewProvider;
+  meetingUrl: string | null;
+  scheduledAt: string;
+  available: boolean;
+  booked: boolean;
+}
+
 export const STATUS_TRANSITIONS: Record<RequirementStatus, readonly RequirementStatus[]> = {
   Draft: ['Open', 'Cancelled'],
   Open: ['Paused', 'Filled', 'Closed', 'Cancelled'],
   Paused: ['Open', 'Closed', 'Cancelled'],
   Filled: ['Open', 'Closed'],
-  Closed: [],
+  Closed: ['Open'],
   Cancelled: [],
 };
 
@@ -93,6 +101,7 @@ export interface RequirementSummary {
   /** Requirements (one per vendor post) describing this same opportunity. */
   groupSize: number;
   sourceCount: number;
+  pendingApplications: number;
   vendors: VendorRef[];
   canManage: boolean;
   createdAt: string;
@@ -164,19 +173,37 @@ export interface RequirementDetail extends RequirementSummary {
   organizationDetail: OrganizationPublicView & { contact: { name: string; email: string | null; phone: string | null } | null };
   sources: SourceView[];
   groupMembers: GroupMemberView[];
+  demoSlots: DemoSlotView[];
   allowedStatuses: RequirementStatus[];
 }
 
 export interface ApplicationView {
   id: string;
   requirement: { id: string; title: string; city: string; startDate: string; endDate: string };
-  trainer: { id: string; name: string; email: string | null; phone: string | null };
+  trainer: {
+    id: string;
+    name: string;
+    skills: string[];
+    email: string | null;
+    phone: string | null;
+    profileLinks: { resume: string; github: string; linkedin: string; leetcode: string };
+  };
   coverNote: string;
   expectedRate: number | null;
   status: ApplicationStatus;
   interview: { provider: InterviewProvider; meetingUrl: string; scheduledAt: string; notes: string } | null;
   decisionNote: string | null;
   canManage: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApplicationNotificationView {
+  applicationId: string;
+  requirementId: string;
+  requirementTitle: string;
+  trainerName: string;
+  status: ApplicationStatus;
   createdAt: string;
   updatedAt: string;
 }

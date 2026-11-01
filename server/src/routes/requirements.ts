@@ -3,6 +3,7 @@ import { rateLimit } from 'express-rate-limit';
 import multer, { type FileFilterCallback } from 'multer';
 import {
   CreateRequirementSchema,
+  DemoSlotsUpdateSchema,
   GroupRequirementsSchema,
   RequirementInputSchema,
   RequirementQuerySchema,
@@ -25,6 +26,7 @@ import { requireAuth, requireRole } from '../auth/middleware.js';
 import { actorOf, loadActor, requireOrganization } from '../auth/actor.js';
 import { HttpError, escapeRegex, notFound, objectId, parseBody, toIsoDate } from '../http.js';
 import { Organization, organizationName } from '../models/organization.js';
+import { Application } from '../models/application.js';
 import { Requirement, type RequirementDoc } from '../models/requirement.js';
 import { RequirementSource } from '../models/requirement-source.js';
 import { InboxItem } from '../models/inbox-item.js';
@@ -93,6 +95,7 @@ interface RequirementRecord {
   travel: RequirementSummary['travel'];
   food: RequirementSummary['food'];
   stay: RequirementSummary['stay'];
+  demoSlots: { provider: RequirementDetail['demoSlots'][number]['provider']; meetingUrl: string; scheduledAt: Date }[];
   status: RequirementStatus;
   publishedAt: Date | null;
   groupId: Types.ObjectId | null;
@@ -153,7 +156,7 @@ function managementStatus(status: RequirementStatus): RequirementStatus[] {
     Open: ['Paused', 'Filled', 'Closed', 'Cancelled'],
     Paused: ['Open', 'Closed', 'Cancelled'],
     Filled: ['Open', 'Closed'],
-    Closed: [],
+    Closed: ['Open'],
     Cancelled: [],
   };
   return map[status];
@@ -166,6 +169,7 @@ async function summarize(
   groupSizeMap: Map<string, number>,
   groupVendorsMap: Map<string, VendorRef[]>,
   sourceCountMap: Map<string, number>,
+  pendingApplicationsMap: Map<string, number>,
 ): Promise<RequirementSummary> {
   const organization = organizationMap.get(String(requirement.organizationId));
   const groupKey = requirement.groupId ? String(requirement.groupId) : String(requirement._id);
@@ -190,6 +194,7 @@ async function summarize(
     groupId: requirement.groupId ? String(requirement.groupId) : null,
     groupSize: requirement.groupId ? groupSizeMap.get(groupKey) ?? 1 : 1,
     sourceCount: sourceCountMap.get(String(requirement._id)) ?? 0,
+    pendingApplications: canManageRequirement(actor, requirement) ? pendingApplicationsMap.get(String(requirement._id)) ?? 0 : 0,
     vendors: groupVendorsMap.get(groupKey) ?? (organization ? [toVendorRef(organization)] : []),
     canManage: canManageRequirement(actor, requirement),
     createdAt: requirement.createdAt.toISOString(),
@@ -228,6 +233,13 @@ async function presentationMaps(requirements: RequirementRecord[], actor: Return
       ])
     : [];
   const countByRequirement = new Map(sourceCounts.map((item) => [String(item['_id']), Number(item['count'])]));
+  const pendingApplications = actor.role === 'Vendor' || actor.role === 'Admin'
+    ? await Application.aggregate([
+        { $match: { requirementId: { $in: requirementIds }, status: 'Applied', deletedAt: null } },
+        { $group: { _id: '$requirementId', count: { $sum: 1 } } },
+      ])
+    : [];
+  const pendingApplicationsMap = new Map(pendingApplications.map((item) => [String(item['_id']), Number(item['count'])]));
   const allMembers = [...new Map([...requirements, ...siblings].map((item) => [String(item._id), item])).values()];
   const sourceCountMap = new Map<string, number>();
   for (const requirement of allMembers) {
@@ -240,7 +252,7 @@ async function presentationMaps(requirements: RequirementRecord[], actor: Return
       : countByRequirement.get(countKey) ?? 0);
     if (!requirement.groupId) sourceCountMap.set(groupKey, countByRequirement.get(countKey) ?? 0);
   }
-  return { organizationMap, groupSizeMap, groupVendorsMap, sourceCountMap };
+  return { organizationMap, groupSizeMap, groupVendorsMap, sourceCountMap, pendingApplicationsMap };
 }
 
 async function createRequirement(
@@ -311,6 +323,12 @@ async function requirementDetail(requirement: RequirementRecord, actor: ReturnTy
   const sourceDocuments = await RequirementSource.find({ requirementId: { $in: sourceRequirementIds }, deletedAt: null } as never)
     .sort({ createdAt: 1 })
     .lean();
+  const bookedSlots = await Application.find({ requirementId: requirement._id, demoSlotAt: { $ne: null }, status: { $in: ['InterviewScheduled', 'Accepted'] }, deletedAt: null } as never)
+    .select('demoSlotAt trainerId')
+    .lean();
+  const bookedTimes = new Set(bookedSlots.map((application) => new Date(application['demoSlotAt'] as Date).getTime()));
+  const ownBookedTimes = new Set(bookedSlots.filter((application) => String(application['trainerId']) === String(actor.userId))
+    .map((application) => new Date(application['demoSlotAt'] as Date).getTime()));
   const organizationIds = [requirement.organizationId, ...groupRecords.map((member) => member.organizationId)];
   const organizationMap = await getOrganizationMap(organizationIds);
   const sources: SourceView[] = sourceDocuments.map((source) => {
@@ -347,6 +365,7 @@ async function requirementDetail(requirement: RequirementRecord, actor: ReturnTy
     maps.groupSizeMap,
     maps.groupVendorsMap,
     maps.sourceCountMap,
+    maps.pendingApplicationsMap,
   );
   return {
     ...summary,
@@ -376,6 +395,13 @@ async function requirementDetail(requirement: RequirementRecord, actor: ReturnTy
         },
     sources,
     groupMembers,
+    demoSlots: (requirement.demoSlots ?? []).map((slot) => ({
+      provider: slot.provider,
+      meetingUrl: canManage || ownBookedTimes.has(slot.scheduledAt.getTime()) ? slot.meetingUrl : null,
+      scheduledAt: slot.scheduledAt.toISOString(),
+      available: !bookedTimes.has(slot.scheduledAt.getTime()) && slot.scheduledAt > new Date(),
+      booked: bookedTimes.has(slot.scheduledAt.getTime()),
+    })),
     allowedStatuses: canManage ? managementStatus(requirement.status) : [],
   };
 }
@@ -520,7 +546,7 @@ router.get('/', loadActor, async (request, response) => {
   const records = (result?.['data'] ?? []) as RequirementRecord[];
   const total = Number(result?.['total']?.[0]?.['count'] ?? 0);
   const maps = await presentationMaps(records, actor);
-  const data = await Promise.all(records.map((record) => summarize(record, actor, maps.organizationMap, maps.groupSizeMap, maps.groupVendorsMap, maps.sourceCountMap)));
+  const data = await Promise.all(records.map((record) => summarize(record, actor, maps.organizationMap, maps.groupSizeMap, maps.groupVendorsMap, maps.sourceCountMap, maps.pendingApplicationsMap)));
   response.json({ data, page: query.page, limit: query.limit, total, hasMore: query.page * query.limit < total });
 });
 
@@ -585,6 +611,36 @@ router.put('/:id', requireRole('Admin', 'Vendor'), loadActor, async (request, re
     return saved.toObject() as unknown as RequirementRecord;
   });
   response.json({ data: await requirementDetail(updated, actor) });
+});
+
+router.put('/:id/demo-slots', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {
+  const actor = actorOf(request);
+  const id = objectId(request.params['id'], 'requirement id');
+  const current = await getVisibleRequirement(id, actor);
+  if (!canManageRequirement(actor, current)) throw new HttpError(403, 'Only the posting organization can manage demo slots');
+  const { slots } = parseBody(DemoSlotsUpdateSchema, request.body, 'demo slots');
+  const now = new Date();
+  if (slots.some((slot) => new Date(slot.scheduledAt) <= now && !current.demoSlots.some((existing) =>
+    existing.scheduledAt.getTime() === new Date(slot.scheduledAt).getTime() && existing.provider === slot.provider && existing.meetingUrl === slot.meetingUrl))) {
+    throw new HttpError(400, 'New demo slots must be in the future');
+  }
+  const booked = await Application.find({ requirementId: id, demoSlotAt: { $ne: null }, status: { $in: ['InterviewScheduled', 'Accepted'] }, deletedAt: null } as never)
+    .select('demoSlotAt interviewProvider meetingUrl')
+    .lean();
+  for (const application of booked) {
+    const bookedAt = new Date(application['demoSlotAt'] as Date).getTime();
+    const retained = slots.find((slot) => new Date(slot.scheduledAt).getTime() === bookedAt);
+    if (!retained || retained.provider !== application['interviewProvider'] || retained.meetingUrl !== application['meetingUrl']) {
+      throw new HttpError(409, 'Booked demo slots cannot be removed or changed');
+    }
+  }
+  const updated = await Requirement.findOneAndUpdate(
+    { _id: id, organizationId: current.organizationId, deletedAt: null } as never,
+    { $set: { demoSlots: slots.map((slot) => ({ ...slot, scheduledAt: new Date(slot.scheduledAt) })) } },
+    { new: true, runValidators: true },
+  ).lean();
+  if (!updated) throw notFound('Requirement');
+  response.json({ data: await requirementDetail(updated as unknown as RequirementRecord, actor) });
 });
 
 router.patch('/:id/status', requireRole('Admin', 'Vendor'), loadActor, async (request, response) => {

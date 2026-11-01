@@ -10,6 +10,7 @@ export interface Requirement {
   title: string;
   status: string;
   canManage: boolean;
+  canApply: boolean;
   groupId: string | null;
   stack: string[];
   dateLabel: string;
@@ -18,6 +19,7 @@ export interface Requirement {
   audience: string;
   tfa: SupportStatus;
   paymentDate: string | null;
+  pendingApplications: number;
   postingCount: number;
   groupCount: number;
   sources: string[];

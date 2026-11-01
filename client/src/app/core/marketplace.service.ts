@@ -1,8 +1,9 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type { ApplicationDecision, ApplyToRequirementInput, InboxCaptureInput, InterviewScheduleInput, OrganizationInput, RequirementInput, RequirementQuery, SmartExtractionRequest, SourceInput } from '@trainlead/shared';
+import type { ApplicationDecision, ApplyToRequirementInput, BookDemoSlotInput, DemoSlotsUpdateInput, InboxCaptureInput, InterviewScheduleInput, OrganizationInput, RequirementInput, RequirementQuery, SmartExtractionRequest, SourceInput } from '@trainlead/shared';
 import type {
   ApplicationView,
+  ApplicationNotificationView,
   DashboardStats,
   AdminAnalytics,
   ExtractedRequirement,
@@ -104,6 +105,10 @@ export class MarketplaceService {
     return this.http.get<{ data: RequirementDetail }>(`/api/requirements/${id}`);
   }
 
+  updateRequirementDemoSlots(id: string, input: DemoSlotsUpdateInput): Observable<{ data: RequirementDetail }> {
+    return this.http.put<{ data: RequirementDetail }>(`/api/requirements/${id}/demo-slots`, input);
+  }
+
   applyToRequirement(requirementId: string, input: ApplyToRequirementInput): Observable<{ data: ApplicationView }> {
     return this.http.post<{ data: ApplicationView }>(`/api/applications/requirements/${requirementId}`, input);
   }
@@ -116,8 +121,16 @@ export class MarketplaceService {
     return this.http.get<{ data: ApplicationView[] }>(`/api/applications/requirements/${requirementId}`);
   }
 
+  getApplicationNotifications(): Observable<{ data: ApplicationNotificationView[]; pendingCount: number }> {
+    return this.http.get<{ data: ApplicationNotificationView[]; pendingCount: number }>('/api/applications/notifications');
+  }
+
   scheduleApplicationInterview(applicationId: string, input: InterviewScheduleInput): Observable<{ data: ApplicationView }> {
     return this.http.patch<{ data: ApplicationView }>(`/api/applications/${applicationId}/interview`, input);
+  }
+
+  bookDemoSlot(applicationId: string, input: BookDemoSlotInput): Observable<{ data: ApplicationView }> {
+    return this.http.patch<{ data: ApplicationView }>(`/api/applications/${applicationId}/demo-slot`, input);
   }
 
   decideApplication(applicationId: string, input: ApplicationDecision): Observable<{ data: ApplicationView }> {
