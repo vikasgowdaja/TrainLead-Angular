@@ -57,7 +57,7 @@
           @if (isTrainer()) {
             <section class="detail-card application-panel" aria-labelledby="application-title">
               <div class="detail-card-heading"><div><p class="eyebrow">YOUR RESPONSE</p><h2 id="application-title">Your application</h2></div>@if (myApplication(); as application) { <span class="role-pill">{{ application.status }}</span> }</div>
-              @if (!myApplicationLoaded()) { <p class="detail-card-intro">Checking application status…</p> }
+              @if (!myApplicationLoaded() || !trainerProfileLoaded()) { <p class="detail-card-intro">Loading your application and saved profile…</p> }
               @else if (myApplication(); as application) {
                 @if (application.coverNote) { <p>{{ application.coverNote }}</p> }
                 @if (application.status === 'Applied') {

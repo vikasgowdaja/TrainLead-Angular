@@ -26,6 +26,7 @@ export class MarketplacePage {
   protected readonly activeView = signal<'requirements' | 'inbox'>('requirements');
   protected readonly darkMode = signal(false);
   protected readonly requirements = signal<Requirement[]>([]);
+  protected readonly trainerPhotoUrl = signal<string | null>(null);
   protected readonly stats = signal<DashboardStats | null>(null);
   protected readonly posts = signal<InboxItemView[]>([]);
   protected readonly filters = signal<RequirementQuery>({ sort: 'newest', page: 1, limit: 10 });
@@ -73,6 +74,11 @@ export class MarketplacePage {
     this.textFilterChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(({ key, value }) => {
       this.updateFilters({ [key]: value || undefined });
     });
+    if (this.auth.hasRole('Trainer')) {
+      this.marketplace.getTrainerProfile().pipe(takeUntilDestroyed()).subscribe({
+        next: ({ data }) => this.trainerPhotoUrl.set(data.photoUrl),
+      });
+    }
     if (this.auth.hasRole('Vendor')) {
       this.loadApplicationNotifications();
       this.marketplace.getMyOrganization().pipe(

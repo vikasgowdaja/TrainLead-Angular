@@ -29,10 +29,13 @@ const stats: DashboardStats = {
   topVendors: [{ id: 'org-1', name: 'SkillBridge Academy', sourceCount: 1 }],
 };
 
-function flushDashboard(fixture: ReturnType<typeof TestBed.createComponent<MarketplacePage>>): void {
+function flushDashboard(fixture: ReturnType<typeof TestBed.createComponent<MarketplacePage>>, profilePhotoUrl: string | null = null): void {
   const http = TestBed.inject(HttpTestingController);
   http.expectOne((request) => request.url === '/api/requirements').flush({ data: [summary], page: 1, limit: 10, total: 1, hasMore: false });
   http.expectOne('/api/requirements/stats').flush({ data: stats });
+  for (const request of http.match('/api/trainer-profile/me')) {
+    request.flush({ data: { id: '1', name: 'Ananya Rao', email: 'a@b.co', phone: null, photoUrl: profilePhotoUrl, resumeUrl: null } });
+  }
   fixture.detectChanges();
 }
 
@@ -90,6 +93,18 @@ describe('MarketplacePage', () => {
     trainerView.detectChanges();
     flushDashboard(trainerView);
     expect((trainerView.nativeElement as HTMLElement).querySelector('a[href="/admin/users"]')).toBeNull();
+  });
+
+  it('uses the uploaded profile photo in the account link instead of a separate profile link', () => {
+    signInAs('Trainer');
+    const fixture = TestBed.createComponent(MarketplacePage);
+    fixture.detectChanges();
+    flushDashboard(fixture, 'https://res.cloudinary.com/trainlead/image/upload/trainer.jpg');
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.profile-button[href="/trainer/profile"]')).not.toBeNull();
+    expect(compiled.querySelector('.profile-photo')?.getAttribute('src')).toBe('https://res.cloudinary.com/trainlead/image/upload/trainer.jpg');
+    expect(compiled.textContent).not.toContain('My profile');
   });
 
   it('shows vendor application notifications linked to the matching application', () => {

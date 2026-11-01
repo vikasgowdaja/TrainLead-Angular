@@ -34,6 +34,7 @@ export class RequirementDetailPage {
   protected readonly successMessage = signal<string | null>(null);
   protected readonly myApplication = signal<ApplicationView | null>(null);
   protected readonly myApplicationLoaded = signal(false);
+  protected readonly trainerProfileLoaded = signal(false);
   protected readonly reapplying = signal(false);
   private readonly previousApplication = signal<ApplicationView | null>(null);
   protected readonly applications = signal<ApplicationView[]>([]);
@@ -43,6 +44,7 @@ export class RequirementDetailPage {
   protected readonly locationInput = signal('');
   protected readonly contactPhoneInput = signal(this.auth.currentUser()?.phone ?? '');
   protected readonly resumeUrl = signal('');
+  private readonly savedResumeUrl = signal('');
   protected readonly githubUrl = signal('');
   protected readonly linkedinUrl = signal('');
   protected readonly leetcodeUrl = signal('');
@@ -102,7 +104,9 @@ export class RequirementDetailPage {
     this.errorMessage.set(null);
     this.api.uploadTrainerResume(file).pipe(finalize(() => this.uploadingResume.set(false))).subscribe({
       next: ({ data }) => {
-        this.resumeUrl.set(data.resumeUrl ?? '');
+        const resumeUrl = data.resumeUrl?.trim() ?? '';
+        this.savedResumeUrl.set(resumeUrl);
+        this.resumeUrl.set(resumeUrl);
         this.successMessage.set('Resume uploaded. Its link is ready for your application.');
       },
       error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
@@ -164,7 +168,7 @@ export class RequirementDetailPage {
     this.skillsInput.set(application.trainer.skills.join(', '));
     this.locationInput.set(application.trainer.location);
     this.contactPhoneInput.set(application.trainer.phone ?? this.auth.currentUser()?.phone ?? '');
-    this.resumeUrl.set(application.trainer.profileLinks.resume);
+    this.resumeUrl.set(this.savedResumeUrl() || application.trainer.profileLinks.resume.trim());
     this.githubUrl.set(application.trainer.profileLinks.github);
     this.linkedinUrl.set(application.trainer.profileLinks.linkedin);
     this.leetcodeUrl.set(application.trainer.profileLinks.leetcode);
@@ -245,12 +249,14 @@ export class RequirementDetailPage {
   }
 
   private loadTrainerProfile(): void {
-    this.api.getTrainerProfile().subscribe({
+    this.api.getTrainerProfile().pipe(finalize(() => this.trainerProfileLoaded.set(true))).subscribe({
       next: ({ data }) => {
-        if (!this.resumeUrl()) this.resumeUrl.set(data.resumeUrl ?? '');
+        const resumeUrl = data.resumeUrl?.trim() ?? '';
+        this.savedResumeUrl.set(resumeUrl);
+        if (!this.resumeUrl()) this.resumeUrl.set(resumeUrl);
         if (!this.contactPhoneInput()) this.contactPhoneInput.set(data.phone ?? '');
       },
-      error: () => undefined,
+      error: (error: unknown) => this.errorMessage.set(describeHttpError(error)),
     });
   }
 
