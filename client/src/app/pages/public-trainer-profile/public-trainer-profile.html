@@ -1,22 +1,35 @@
 <main class="app-shell public-trainer-page">
   <section class="public-trainer-content" aria-labelledby="public-trainer-title">
-    <a class="back-link" routerLink="/">&larr; Back to requirements</a>
+    <div class="public-profile-topline"><a class="back-link" routerLink="/">&larr; Back to requirements</a><span class="eyebrow">TRAINLEAD / PUBLIC PROFILE</span></div>
     @if (loading()) { <p class="auth-subtitle">Loading trainer profile…</p> }
     @else if (errorMessage(); as message) { <section class="detail-card" role="alert"><h1>Profile unavailable</h1><p>{{ message }}</p><a class="secondary-button" routerLink="/">Back to requirements</a></section> }
     @else if (profile(); as trainer) {
-      <header class="public-trainer-heading">
-        @if (trainer.photoUrl) { <img class="public-trainer-photo" [src]="trainer.photoUrl" alt="Profile photo of {{ trainer.name }}" /> }
-        @else { <span class="public-trainer-photo-placeholder material-symbols-outlined" aria-hidden="true">person</span> }
-        <div><p class="eyebrow">TRAINLEAD <span>/</span> TRAINER PROFILE</p><h1 id="public-trainer-title">{{ trainer.name }}</h1><p>{{ trainer.location || 'Location not provided' }}</p></div>
+      <header class="public-profile-hero">
+        <div class="public-profile-identity">
+          @if (trainer.photoUrl) { <img class="public-trainer-photo" [src]="trainer.photoUrl" alt="Profile photo of {{ trainer.name }}" /> }
+          @else { <span class="public-trainer-photo-placeholder material-symbols-outlined" aria-hidden="true">person</span> }
+          <div class="public-profile-heading-copy"><p class="eyebrow">TRAINER PROFILE</p><h1 id="public-trainer-title">{{ trainer.name }}</h1><p class="public-profile-location"><span class="material-symbols-outlined" aria-hidden="true">location_on</span>{{ trainer.location || 'Location not provided' }}</p></div>
+        </div>
+        <div class="public-profile-actions"><a class="primary-button" routerLink="/register">Create a trainer profile</a><a class="public-profile-signin" routerLink="/login">Already a member? Sign in</a></div>
       </header>
+      <nav class="public-profile-nav" aria-label="Profile sections"><a href="#expertise">Skills</a><a href="#portfolio">Professional links</a></nav>
       <div class="public-trainer-sections">
-        <section class="detail-card" aria-labelledby="public-skills-title"><p class="eyebrow">EXPERTISE</p><h2 id="public-skills-title">Skills</h2>@if (trainer.skills.length) { <div class="card-tags">@for (skill of trainer.skills; track skill) { <span class="skill-tag">{{ skill }}</span> }</div> } @else { <p class="panel-footnote">No skills listed.</p> }</section>
-        <section class="detail-card" aria-labelledby="public-links-title"><p class="eyebrow">PORTFOLIO</p><h2 id="public-links-title">Professional links</h2><nav class="public-trainer-links" aria-label="Professional links">
-          @if (trainer.githubUrl) { <a [href]="trainer.githubUrl" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">code</span>GitHub</a> }
-          @if (trainer.linkedinUrl) { <a [href]="trainer.linkedinUrl" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">work</span>LinkedIn</a> }
-          @if (trainer.leetcodeUrl) { <a [href]="trainer.leetcodeUrl" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">terminal</span>LeetCode</a> }
-        </nav></section>
+        <section class="public-profile-section" id="expertise" aria-labelledby="public-skills-title">
+          <div class="public-section-heading"><div><p class="eyebrow">EXPERTISE</p><h2 id="public-skills-title">Skills</h2></div><span class="public-profile-count">{{ trainer.skills.length }}</span></div>
+          @if (trainer.skills.length) { <div class="public-profile-skills">@for (skill of trainer.skills; track skill) { <span class="public-profile-skill">{{ skill }}</span> }</div> }
+          @else { <p class="public-profile-empty">No skills listed.</p> }
+        </section>
+        <section class="public-profile-section" id="portfolio" aria-labelledby="public-links-title">
+          <p class="eyebrow">PORTFOLIO</p><h2 id="public-links-title">Professional links</h2>
+          <nav class="public-trainer-links" aria-label="Professional links">
+            @if (trainer.githubUrl) { <a [href]="trainer.githubUrl" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">code</span>GitHub<span class="material-symbols-outlined external-link-icon" aria-hidden="true">north_east</span></a> }
+            @if (trainer.linkedinUrl) { <a [href]="trainer.linkedinUrl" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">work</span>LinkedIn<span class="material-symbols-outlined external-link-icon" aria-hidden="true">north_east</span></a> }
+            @if (trainer.leetcodeUrl) { <a [href]="trainer.leetcodeUrl" target="_blank" rel="noopener noreferrer"><span class="material-symbols-outlined" aria-hidden="true">terminal</span>LeetCode<span class="material-symbols-outlined external-link-icon" aria-hidden="true">north_east</span></a> }
+            @if (!trainer.githubUrl && !trainer.linkedinUrl && !trainer.leetcodeUrl) { <p class="public-profile-empty">No professional links listed.</p> }
+          </nav>
+        </section>
       </div>
+      <section class="public-profile-join" aria-labelledby="public-profile-join-title"><div><p class="eyebrow">YOUR NEXT STEP</p><h2 id="public-profile-join-title">Make your expertise discoverable.</h2><p>Create a TrainLead trainer profile to connect with organizations looking for your skills.</p></div><a class="primary-button" routerLink="/register">Join TrainLead</a></section>
     }
   </section>
 </main>
